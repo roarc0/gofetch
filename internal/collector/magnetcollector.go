@@ -1,11 +1,11 @@
-package torrent
+package collector
 
 import (
 	"context"
 	"strings"
 
 	"github.com/gocolly/colly"
-	"github.com/roarc0/gct/internal/collector"
+	"github.com/roarc0/go-magnet"
 )
 
 type MagnetCollector struct {
@@ -13,23 +13,34 @@ type MagnetCollector struct {
 	uri   string
 }
 
-func NewMagnetCollector(uri string) *MagnetCollector {
+func NewMagnetCollector(uri string) (*MagnetCollector, error) {
 	return &MagnetCollector{
 		uri:   uri,
 		colly: colly.NewCollector(),
-	}
+	}, nil
 }
 
-func (c *MagnetCollector) Collect(ctx context.Context) ([]collector.Downloadable, error) {
-	dls := []collector.Downloadable{}
+func (c *MagnetCollector) Collect(ctx context.Context) ([]Downloadable, error) {
+	dls := []Downloadable{}
 
 	c.colly.OnHTML("a",
 		func(e *colly.HTMLElement) {
 			href := e.Attr("href")
 			if strings.HasPrefix(href, "magnet:") {
+				magnet, err := magnet.Parse(href)
+				if err != nil {
+					return
+				}
+
+				name := e.Text
+				if len(magnet.DisplayNames) > 0 {
+					name = magnet.DisplayNames[0]
+				}
+
 				dls = append(dls, Magnet{
-					name: e.Text,
+					name: name,
 					uri:  e.Attr("href"),
+					size: magnet.ExactLength,
 				})
 			}
 		})

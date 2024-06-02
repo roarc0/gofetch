@@ -2,6 +2,7 @@ package collector
 
 import (
 	"os/exec"
+	"time"
 
 	"github.com/pkg/errors"
 )
@@ -15,10 +16,20 @@ type XDGDownloader struct {
 func (o XDGDownloader) Open() error {
 	cmd := exec.Command("xdg-open", o.URI())
 
-	err := cmd.Wait()
+	err := cmd.Start()
 	if err != nil {
 		return errors.Wrapf(err, "failed to start xdg-open")
 	}
+
+	err = cmd.Wait()
+	if err != nil {
+		return errors.Wrapf(err, "failed to wait for xdg-open")
+	}
+
+	go func() {
+		<-time.After(1 * time.Second)
+		cmd.Process.Release()
+	}()
 
 	return nil
 }

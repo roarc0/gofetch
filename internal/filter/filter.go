@@ -2,19 +2,28 @@ package filter
 
 import (
 	"errors"
+	"reflect"
 
-	"github.com/roarc0/gct/internal/collector"
+	"gopkg.in/yaml.v3"
+
+	"github.com/roarc0/gofetch/internal/collector"
 )
 
 var (
 	ErrUnknownMatchType = errors.New("unknown match type")
 )
 
-type Filter interface {
-	Filter(dls []collector.Downloadable) ([]MatchedDownloadable, error)
+func FilterOptionalMatches(in []MatchedDownloadable) (out []collector.Downloadable) {
+	for _, d := range in {
+		if !d.Optional {
+			out = append(out, d.Downloadable)
+		}
+	}
+
+	return
 }
 
-type filterWithPartialMatches struct {
+type Filter struct {
 	matchers []Matcher
 }
 
@@ -23,33 +32,33 @@ type MatchedDownloadable struct {
 	Optional bool
 }
 
-// NewFilterWithOptionalMatches creates a new filter to determine which downloadables
+// NewFilter creates a new filter to determine which downloadables
 // should be kept based on the matchers.
-func NewFilterWithOptionalMatches(matchers []Matcher) Filter {
-	return &filterWithPartialMatches{
+func NewFilter(matchers []Matcher) Filter {
+	return Filter{
 		matchers: matchers,
 	}
 }
 
-func (f *filterWithPartialMatches) Filter(in []collector.Downloadable) (out []MatchedDownloadable, err error) {
+func (f *Filter) Filter(in []collector.Downloadable) (out []MatchedDownloadable, err error) {
 	for _, d := range in {
 		match := true
-		partialMatch := false
+		optionalMatch := false
 
 		for _, matcher := range f.matchers {
-			m, err := matcher.Match(d)
+			matchType, m, err := matcher.Match(d)
 			if err != nil {
 				return nil, err
 			}
 
-			switch matcher.MatchType() {
+			switch matchType {
 			case MatchTypeRequired:
 				if !m {
 					match = false
 				}
 			case MatchTypeOptional:
 				if m {
-					partialMatch = true
+					optionalMatch = true
 				}
 			case MatchTypeExclude:
 				if m {
@@ -64,7 +73,7 @@ func (f *filterWithPartialMatches) Filter(in []collector.Downloadable) (out []Ma
 			out = append(out,
 				MatchedDownloadable{
 					Downloadable: d,
-					Optional:     partialMatch,
+					Optional:     optionalMatch,
 				},
 			)
 		}
@@ -73,12 +82,44 @@ func (f *filterWithPartialMatches) Filter(in []collector.Downloadable) (out []Ma
 	return out, nil
 }
 
-func FilterPartialMatchDownloadables(in []MatchedDownloadable) (out []collector.Downloadable) {
-	for _, d := range in {
-		if !d.Optional {
-			out = append(out, d.Downloadable)
-		}
+func (f Filter) MarshalYAML() (any, error) {
+	var fields struct {
+		Matchers []MatcherWrapper
 	}
 
-	return
+	for _, m := range f.matchers {
+		matcherType := reflect.TypeOf(m).String()
+		switch matcherType {
+		case reflect.TypeOf(&RegexMatcher{}).String():
+			matcherType = "regex"
+		default:
+			return nil, errors.New("unknown matcher type")
+		}
+
+		fields.Matchers = append(
+			fields.Matchers,
+			MatcherWrapper{
+				Type:    matcherType,
+				Matcher: m,
+			},
+		)
+	}
+
+	return fields, nil
+}
+
+func (f *Filter) UnmarshalYAML(value *yaml.Node) error {
+	var fields struct {
+		Matchers []MatcherWrapper
+	}
+
+	if err := value.Decode(&fields); err != nil {
+		return err
+	}
+
+	for _, mw := range fields.Matchers {
+		f.matchers = append(f.matchers, mw.Matcher)
+	}
+
+	return nil
 }

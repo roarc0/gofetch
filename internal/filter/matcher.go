@@ -1,59 +1,64 @@
 package filter
 
 import (
-	"regexp"
+	"reflect"
 
 	"github.com/pkg/errors"
-
-	"github.com/roarc0/gct/internal/collector"
+	"github.com/roarc0/gofetch/internal/collector"
+	"gopkg.in/yaml.v3"
 )
-
-type MatchType int
-
-const (
-	MatchTypeRequired MatchType = iota
-	MatchTypeOptional
-	MatchTypeExclude
-)
-
-func (m MatchType) String() string {
-	switch m {
-	case MatchTypeRequired:
-		return "required"
-	case MatchTypeOptional:
-		return "optional"
-	case MatchTypeExclude:
-		return "exclude"
-	default:
-		return "unknown"
-	}
-}
 
 // Matcher is an interface that defines a method to match a downloadable to see if it should be used or not.
 type Matcher interface {
-	Match(dl collector.Downloadable) (bool, error)
-	MatchType() MatchType
+	Match(dl collector.Downloadable) (MatchType, bool, error)
 }
 
-// RegexMatcher is a type that implements the Matcher interface to match a downloadable using a regex.
-//
-// NOTE: Exclude is used to determine if the matcher should be used to exclude or include downloadables.
-// We could use negative lookaheads in the regex, but go doesn't support them.
-// This is because they can lead to denial of service attacks.
-type RegexMatcher struct {
-	Regex        string    `json:"regex"`
-	MatchTypeVal MatchType `json:"match_type"`
+type MatcherWrapper struct {
+	Matcher
+	Type string
 }
 
-func (m *RegexMatcher) Match(dl collector.Downloadable) (bool, error) {
-	matched, err := regexp.Match(m.Regex, []byte(dl.Name()))
-	if err != nil {
-		return false, errors.Wrap(err, "failed to match regex")
+func (m MatcherWrapper) MarshalYAML() (any, error) {
+	matcherType := reflect.TypeOf(m.Matcher).String()
+	switch matcherType {
+	case reflect.TypeOf(&RegexMatcher{}).String():
+		matcherType = "regex"
+	default:
+		return nil, errors.New("unknown matcher type")
 	}
 
-	return matched, nil
+	return struct {
+		Type    string
+		Matcher Matcher
+	}{
+		Type:    matcherType,
+		Matcher: m.Matcher,
+	}, nil
 }
 
-func (m *RegexMatcher) MatchType() MatchType {
-	return m.MatchTypeVal
+func (m *MatcherWrapper) UnmarshalYAML(node *yaml.Node) error {
+	var tmp struct {
+		Type    string
+		Matcher map[string]any
+	}
+
+	if err := node.Decode(&tmp); err != nil {
+		return err
+	}
+
+	m.Type = tmp.Type
+
+	switch m.Type {
+	case "regex":
+		m.Matcher = &RegexMatcher{}
+
+		b, err := yaml.Marshal(tmp.Matcher)
+		if err != nil {
+			return err
+		}
+		return yaml.Unmarshal(b, m.Matcher)
+
+	default:
+		return errors.Errorf("unknown matcher type %s", m.Type)
+	}
 }

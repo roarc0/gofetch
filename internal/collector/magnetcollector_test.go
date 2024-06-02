@@ -1,4 +1,4 @@
-package torrent
+package collector
 
 import (
 	"context"
@@ -6,8 +6,6 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"testing"
-
-	"github.com/roarc0/gct/internal/collector"
 )
 
 func TestMagnetCollectorCollect(t *testing.T) {
@@ -21,15 +19,16 @@ func TestMagnetCollectorCollect(t *testing.T) {
 	tests := []struct {
 		name string
 
-		collector collector.DownloadableCollector
-		wantFn    func(ds []collector.Downloadable, err error) error
+		collector DownloadableCollector
+		wantFn    func(ds []Downloadable, err error) error
 	}{
 		{
 			name: "CollectOk",
-			collector: func() collector.DownloadableCollector {
-				return NewMagnetCollector(srv.URL)
+			collector: func() DownloadableCollector {
+				c, _ := NewMagnetCollector(srv.URL)
+				return c
 			}(),
-			wantFn: func(dls []collector.Downloadable, err error) error {
+			wantFn: func(dls []Downloadable, err error) error {
 				if err != nil {
 					return err
 				}
@@ -47,7 +46,7 @@ func TestMagnetCollectorCollect(t *testing.T) {
 			m := tt.collector
 			got, err := m.Collect(context.Background())
 			if wantErr := tt.wantFn(got, err); wantErr != nil {
-				t.Errorf("MagnetCollector.Collect() error = %v", wantErr)
+				t.Errorf("MagnetCollect() error = %v", wantErr)
 				return
 			}
 		})
