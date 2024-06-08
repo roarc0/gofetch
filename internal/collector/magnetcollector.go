@@ -26,27 +26,29 @@ func (c *MagnetCollector) Collect(ctx context.Context) ([]Downloadable, error) {
 	c.colly.OnHTML("a",
 		func(e *colly.HTMLElement) {
 			href := e.Attr("href")
-			if strings.HasPrefix(href, "magnet:") {
-				magnet, err := magnet.Parse(href)
-				if err != nil {
-					return
-				}
+			if !strings.HasPrefix(href, "magnet:?") {
+				return
+			}
 
-				name := e.Text
-				if len(magnet.DisplayNames) > 0 {
-					name = magnet.DisplayNames[0]
-				}
+			magnet, err := magnet.Parse(href)
+			if err != nil {
+				return
+			}
 
-				dls = append(dls, Magnet{
+			name := e.Text
+			if len(magnet.DisplayNames) > 0 {
+				name = magnet.DisplayNames[0]
+			}
+
+			dls = append(dls,
+				Magnet{
 					name: name,
-					uri:  e.Attr("href"),
+					uri:  href,
 					size: magnet.ExactLength,
 				})
-			}
 		})
 
-	err := c.colly.Visit(c.uri)
-	if err != nil {
+	if err := c.colly.Visit(c.uri); err != nil {
 		return nil, err
 	}
 

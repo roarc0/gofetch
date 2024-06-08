@@ -6,6 +6,8 @@ func Factory(source Source) (DownloadableCollector, error) {
 		return NewNyaaMagnetCollector(source.URIs[0])
 	case "magnetdl":
 		return NewMagnetDLMagnetCollector(source.URIs[0])
+	case "generic":
+		fallthrough
 	default:
 		return NewMagnetCollector(source.URIs[0])
 	}

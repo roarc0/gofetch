@@ -89,8 +89,7 @@ func (c *NyaaMagnetCollector) Collect(ctx context.Context) ([]Downloadable, erro
 			}
 		})
 
-	err := c.colly.Visit(c.uri)
-	if err != nil {
+	if err := c.colly.Visit(c.uri); err != nil {
 		return nil, err
 	}
 

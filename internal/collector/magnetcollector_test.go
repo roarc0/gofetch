@@ -43,8 +43,8 @@ func TestMagnetCollectorCollect(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			m := tt.collector
-			got, err := m.Collect(context.Background())
+			c := tt.collector
+			got, err := c.Collect(context.Background())
 			if wantErr := tt.wantFn(got, err); wantErr != nil {
 				t.Errorf("MagnetCollect() error = %v", wantErr)
 				return
