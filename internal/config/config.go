@@ -18,9 +18,10 @@ import (
 
 // Config struct contains the configuration for the application.
 type Config struct {
-	Memory  memory.Config
-	Sources map[string]collector.Source
-	Entries map[string]filter.Entry
+	Transmission collector.TransmissionConfig
+	Memory       memory.Config
+	Sources      map[string]collector.Source
+	Entries      map[string]filter.Entry
 }
 
 func LoadYaml(cfgPath string) (*Config, error) {

@@ -4,7 +4,6 @@ import (
 	"flag"
 
 	"github.com/roarc0/gofetch/internal/config"
-	"github.com/roarc0/gofetch/internal/filter"
 	"github.com/roarc0/gofetch/internal/gofetch"
 	"github.com/roarc0/gofetch/internal/logger"
 	"github.com/roarc0/gofetch/internal/memory"
@@ -38,7 +37,7 @@ func main() {
 		log.Error().Err(err).Msg("Failed to fetch")
 	}
 
-	gf.DownloadAll(filter.FilterOptionalMatches(dls))
+	gf.Download(dls, true)
 
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create GoFetch object")

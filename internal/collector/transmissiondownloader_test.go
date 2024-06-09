@@ -12,7 +12,7 @@ func TestTransmissionDownloader_Open(t *testing.T) {
 	}
 	td := NewTransmissionDownloader(
 		magnet,
-		&TransmissionConnection{
+		&TransmissionConfig{
 			Host: "localhost",
 			Port: "9091",
 			User: "transmission",

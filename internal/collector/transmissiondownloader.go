@@ -14,11 +14,11 @@ import (
 // TransmissionDownloader is a type that implements the Downloader interface to open a downloadable using xdg-open.
 type TransmissionDownloader struct {
 	Downloadable
-	Transmission *TransmissionConnection
+	Transmission *TransmissionConfig
 	client       *http.Client
 }
 
-type TransmissionConnection struct {
+type TransmissionConfig struct {
 	Host string
 	Port string
 	User string
@@ -41,7 +41,7 @@ var (
 )
 
 // NewTransmissionDownloader creates a new TransmissionDownloader
-func NewTransmissionDownloader(downloadable Downloadable, connection *TransmissionConnection) *TransmissionDownloader {
+func NewTransmissionDownloader(downloadable Downloadable, connection *TransmissionConfig) *TransmissionDownloader {
 	return &TransmissionDownloader{
 		Downloadable: downloadable,
 		Transmission: connection,
@@ -125,7 +125,7 @@ func (d *TransmissionDownloader) getSessionID() (*string, error) {
 	return &match[1], nil
 }
 
-func (tc *TransmissionConnection) newRequest() (*http.Request, error) {
+func (tc *TransmissionConfig) newRequest() (*http.Request, error) {
 	req, err := http.NewRequest(
 		http.MethodPost,
 		tc.transmissionURL(),
@@ -140,7 +140,7 @@ func (tc *TransmissionConnection) newRequest() (*http.Request, error) {
 	return req, nil
 }
 
-func (tc *TransmissionConnection) transmissionURL() string {
+func (tc *TransmissionConfig) transmissionURL() string {
 	protocol := "http"
 	if tc.SSL {
 		protocol = "https"

@@ -2,7 +2,6 @@ package gofetch
 
 import (
 	"context"
-	"crypto"
 	"errors"
 	"log"
 
@@ -57,27 +56,33 @@ func (g *GoFetch) Fetch() (dls []filter.MatchedDownloadable, err error) {
 	return dls, nil
 }
 
-func (g *GoFetch) DownloadAll(dls []collector.Downloadable) {
-	for _, dl := range dls {
-		h := crypto.SHA1.New()
-		h.Write([]byte(dl.URI()))
-		hex := h.Sum(nil)
+func (g *GoFetch) Download(dls []filter.MatchedDownloadable, filterOptional bool) {
+	var filteredDls []collector.Downloadable
+	if filterOptional {
+		filteredDls = filter.FilterDownloadables(dls, nil)
+	} else {
+		filteredDls = filter.FilterDownloadables(dls, func(filter.MatchedDownloadable) bool { return false })
+	}
 
-		if g.memory.Has(string(hex)) {
+	downloader := collector.NewTransmissionDownloader(nil, &g.cfg.Transmission)
+
+	for _, dl := range filteredDls {
+		hash := collector.Hash(dl)
+
+		if g.memory.Has(hash) {
 			log.Printf("Already downloaded %q\n", dl.Name())
 			continue
 		}
 
-		log.Printf("Downloading %q\n", dl.Name())
+		log.Printf("Downloading: %q\n", dl.Name())
 
-		err := collector.XDGDownloader{
-			Downloadable: dl,
-		}.Download()
+		downloader.Downloadable = dl
+		err := downloader.Download()
 		if err != nil {
 			log.Println(err)
 		}
 
-		err = g.memory.Put(string(hex))
+		err = g.memory.Put(hash)
 		if err != nil {
 			log.Println(err)
 		}

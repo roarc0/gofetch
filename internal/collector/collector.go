@@ -2,6 +2,7 @@ package collector
 
 import (
 	"context"
+	"crypto"
 	"fmt"
 	"time"
 )
@@ -24,4 +25,10 @@ type Downloadable interface {
 type Downloader interface {
 	Downloadable
 	Download() error
+}
+
+func Hash(d Downloadable) string {
+	h := crypto.SHA1.New()
+	h.Write([]byte(d.URI()))
+	return fmt.Sprintf("%x", h.Sum(nil))
 }

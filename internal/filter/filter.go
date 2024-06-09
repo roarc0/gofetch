@@ -13,9 +13,15 @@ var (
 	ErrUnknownMatchType = errors.New("unknown match type")
 )
 
-func FilterOptionalMatches(in []MatchedDownloadable) (out []collector.Downloadable) {
+func FilterDownloadables(in []MatchedDownloadable, filter func(MatchedDownloadable) bool) (out []collector.Downloadable) {
+	if filter == nil {
+		filter = func(d MatchedDownloadable) bool {
+			return d.Optional
+		}
+	}
+
 	for _, d := range in {
-		if !d.Optional {
+		if !filter(d) {
 			out = append(out, d.Downloadable)
 		}
 	}
