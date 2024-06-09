@@ -1,7 +1,7 @@
 package collector
 
 func Factory(source Source) (DownloadableCollector, error) {
-	switch source.Name {
+	switch source.Type {
 	case "nyaa":
 		return NewNyaaMagnetCollector(source.URIs[0])
 	case "magnetdl":

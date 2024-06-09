@@ -72,7 +72,7 @@ func (g *GoFetch) DownloadAll(dls []collector.Downloadable) {
 
 		err := collector.XDGDownloader{
 			Downloadable: dl,
-		}.Open()
+		}.Download()
 		if err != nil {
 			log.Println(err)
 		}

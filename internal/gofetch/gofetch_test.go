@@ -28,7 +28,7 @@ func TestGoFetch(t *testing.T) {
 	cfg := config.Config{
 		Sources: map[string]collector.Source{
 			"nyaa": {
-				Name: "nyaa",
+				Type: "nyaa",
 				URIs: []string{srv.URL},
 			},
 		},

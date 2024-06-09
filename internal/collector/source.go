@@ -1,7 +1,7 @@
 package collector
 
 type Source struct {
-	Name string
+	Type string
 	URIs []string
 }
 

@@ -26,7 +26,7 @@ memory:
     filepath: gofetch.db
 sources:
     nyaa:
-        name: nyaa
+        type: nyaa
         uris:
             - https://$URL/?c=1_2&s=seeders&o=desc
 entries:
