@@ -13,7 +13,7 @@ var (
 	ErrUnknownMatchType = errors.New("unknown match type")
 )
 
-func FilterDownloadables(in []MatchedDownloadable, filter func(MatchedDownloadable) bool) (out []collector.Downloadable) {
+func FilterDownloadables(in []MatchedDownloadable, filter func(MatchedDownloadable) bool) (out []MatchedDownloadable) {
 	if filter == nil {
 		filter = func(d MatchedDownloadable) bool {
 			return d.Optional
@@ -22,10 +22,17 @@ func FilterDownloadables(in []MatchedDownloadable, filter func(MatchedDownloadab
 
 	for _, d := range in {
 		if !filter(d) {
-			out = append(out, d.Downloadable)
+			out = append(out, d)
 		}
 	}
 
+	return
+}
+
+func ToDownloadables(in []MatchedDownloadable) (out []collector.Downloadable) {
+	for _, d := range in {
+		out = append(out, d.Downloadable)
+	}
 	return
 }
 
@@ -61,20 +68,29 @@ func (f *Filter) Filter(in []collector.Downloadable) (out []MatchedDownloadable,
 			case MatchTypeRequired:
 				if !m {
 					match = false
+					goto next
 				}
 			case MatchTypeOptional:
 				if m {
 					optionalMatch = true
 				}
+			case MatchTypeSufficient:
+				if m {
+					match = true
+					optionalMatch = false
+					goto next
+				}
 			case MatchTypeExclude:
 				if m {
 					match = false
+					goto next
 				}
 			default:
 				return nil, ErrUnknownMatchType
 			}
 		}
 
+	next:
 		if match {
 			out = append(out,
 				MatchedDownloadable{

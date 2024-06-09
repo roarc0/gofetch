@@ -3,6 +3,7 @@ package gofetch
 import (
 	"context"
 	"errors"
+	"fmt"
 	"log"
 
 	"github.com/roarc0/gofetch/internal/collector"
@@ -28,9 +29,9 @@ func NewGoFetch(cfg *config.Config, memory memory.Memory) (*GoFetch, error) {
 	}, nil
 }
 
-func (g *GoFetch) Fetch() (dls []filter.MatchedDownloadable, err error) {
-	for _, entry := range g.cfg.Entries {
-		source, ok := g.cfg.Sources[entry.SourceName]
+func (gf *GoFetch) Fetch() (dls []filter.MatchedDownloadable, err error) {
+	for _, entry := range gf.cfg.Entries {
+		source, ok := gf.cfg.Sources[entry.SourceName]
 		if !ok {
 			return nil, errors.New("source not found")
 		}
@@ -56,35 +57,47 @@ func (g *GoFetch) Fetch() (dls []filter.MatchedDownloadable, err error) {
 	return dls, nil
 }
 
-func (g *GoFetch) Download(dls []filter.MatchedDownloadable, filterOptional bool) {
-	var filteredDls []collector.Downloadable
-	if filterOptional {
-		filteredDls = filter.FilterDownloadables(dls, nil)
-	} else {
-		filteredDls = filter.FilterDownloadables(dls, func(filter.MatchedDownloadable) bool { return false })
+func (gf *GoFetch) Undownloaded(dls []filter.MatchedDownloadable) []filter.MatchedDownloadable {
+	return filter.FilterDownloadables(
+		dls,
+		func(d filter.MatchedDownloadable) bool {
+			return gf.memory.Has(collector.Hash(d))
+		},
+	)
+}
+
+func (gf *GoFetch) DownloadAll(dls []collector.Downloadable) {
+	for _, dl := range dls {
+		err := gf.Download(dl)
+		if err != nil {
+			if err.Error() == "already downloaded" {
+				log.Printf("Already downloaded %q\n", dl.Name())
+			} else {
+				log.Println(err)
+			}
+		}
+		log.Printf("Downloaded: %q\n", dl.Name())
+	}
+}
+
+func (g *GoFetch) Download(dl collector.Downloadable) error {
+	hash := collector.Hash(dl)
+
+	if g.memory.Has(hash) {
+		return fmt.Errorf("already downloaded: %s", dl.Name())
 	}
 
-	downloader := collector.NewTransmissionDownloader(nil, &g.cfg.Transmission)
-
-	for _, dl := range filteredDls {
-		hash := collector.Hash(dl)
-
-		if g.memory.Has(hash) {
-			log.Printf("Already downloaded %q\n", dl.Name())
-			continue
-		}
-
-		log.Printf("Downloading: %q\n", dl.Name())
-
-		downloader.Downloadable = dl
-		err := downloader.Download()
-		if err != nil {
-			log.Println(err)
-		}
-
-		err = g.memory.Put(hash)
-		if err != nil {
-			log.Println(err)
-		}
+	err := collector.
+		NewTransmissionDownloader(dl, &g.cfg.Transmission).
+		Download()
+	if err != nil {
+		return fmt.Errorf("failed to download: %w", err)
 	}
+
+	err = g.memory.Put(hash)
+	if err != nil {
+		return fmt.Errorf("failed to save download to memory: %w", err)
+	}
+
+	return nil
 }

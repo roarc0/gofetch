@@ -13,6 +13,7 @@ import (
 
 func main() {
 	cfgPath := flag.String("config", ".", "Path to the configuration file")
+	mode := flag.String("mode", "auto", "Mode to run the application in")
 	flag.Parse()
 
 	logger.SetupLogger()
@@ -32,12 +33,12 @@ func main() {
 		log.Error().Err(err).Msg("Failed to create GoFetch object")
 	}
 
-	dls, err := gf.Fetch()
-	if err != nil {
-		log.Error().Err(err).Msg("Failed to fetch")
+	switch *mode {
+	case "auto":
+		fetchAll(gf, true)
+	case "manual":
+		runTea(gf)
 	}
-
-	gf.Download(dls, true)
 
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to create GoFetch object")
