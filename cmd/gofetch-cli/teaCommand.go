@@ -26,12 +26,6 @@ func commandModel(gf *gofetch.GoFetch) model {
 	ti.PromptStyle = lipgloss.NewStyle().
 		Bold(true).
 		Foreground(lipgloss.Color("#7D56F4"))
-		// ti.TextStyle = lipgloss.NewStyle().
-		// 	Bold(true).
-		// 	Foreground(lipgloss.Color("#3D26F4"))
-		// ti.Cursor.Style = lipgloss.NewStyle().
-		// 	Foreground(lipgloss.Color("#7D1614")).
-		// Blink(true)
 	ti.CharLimit = 128
 	ti.Width = 20
 
@@ -52,7 +46,7 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.Type {
-		case tea.KeyCtrlC:
+		case tea.KeyCtrlC, tea.KeyCtrlD:
 			return m, tea.Quit
 		case tea.KeyEnter:
 			{
