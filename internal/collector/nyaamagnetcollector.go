@@ -4,7 +4,7 @@ import (
 	"context"
 	"strings"
 
-	"github.com/gocolly/colly"
+	"github.com/gocolly/colly/v2"
 	"github.com/roarc0/go-magnet"
 )
 

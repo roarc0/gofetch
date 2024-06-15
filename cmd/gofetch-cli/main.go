@@ -13,7 +13,7 @@ import (
 
 func main() {
 	cfgPath := flag.String("config", ".", "Path to the configuration file")
-	mode := flag.String("mode", "auto", "Mode to run the application in")
+	mode := flag.String("mode", "manual", "Mode to run the application in")
 	flag.Parse()
 
 	logger.SetupLogger()
