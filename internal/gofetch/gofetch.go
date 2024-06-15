@@ -27,7 +27,7 @@ func NewGoFetch(cfg *config.Config, memory memory.Memory) (*GoFetch, error) {
 	return &GoFetch{
 		cfg:        cfg,
 		memory:     memory,
-		downloader: collector.NewTransmissionDownloader(&cfg.Transmission),
+		downloader: collector.NewTransmissionDownloader(&cfg.Downloader),
 	}, nil
 }
 
@@ -91,9 +91,24 @@ func (g *GoFetch) Download(dl collector.Downloadable) error {
 		return fmt.Errorf("failed to download: %w", err)
 	}
 
-	err = g.memory.Put(hash)
+	err = g.memory.Put(hash, "d")
 	if err != nil {
 		return fmt.Errorf("failed to save download to memory: %w", err)
+	}
+
+	return nil
+}
+
+func (gf *GoFetch) Ignore(dl collector.Downloadable) error {
+	hash := collector.Hash(dl)
+
+	if gf.memory.Has(hash) {
+		return fmt.Errorf("already ignored: %s", dl.Name())
+	}
+
+	err := gf.memory.Put(hash, "i")
+	if err != nil {
+		return fmt.Errorf("failed to save ignore to memory: %w", err)
 	}
 
 	return nil

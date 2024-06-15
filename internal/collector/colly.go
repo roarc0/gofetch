@@ -2,6 +2,7 @@ package collector
 
 import (
 	"context"
+	"crypto/tls"
 	"net"
 	"net/http"
 	"time"
@@ -10,37 +11,63 @@ import (
 	"github.com/hashicorp/go-retryablehttp"
 )
 
-var (
-	userAgent = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+const (
+	defaultUserAgent            = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/126.0.0.0 Safari/537.36"
+	defaultDNSResolverIP        = "1.1.1.1:53"
+	defaultDNSResolverProto     = "udp"
+	defaultDNSResolverTimeoutMs = 5000
+	defaultRetryMax             = 10
 )
 
-func newColly() *colly.Collector {
-	c := colly.NewCollector()
+type HttpConfig struct {
+	UserAgent   string
+	DNSResolver string
+	DNSProto    string
+	DNSTimeout  int
+	Insecure    bool
+	RetryMax    int
+}
 
-	c.SetClient(httpClient())
-	c.UserAgent = userAgent
+func (cfg *HttpConfig) SetDefaultsOnEmptyFields() {
+	if cfg.DNSResolver == "" {
+		cfg.DNSResolver = defaultDNSResolverIP
+	}
+	if cfg.DNSProto == "" {
+		cfg.DNSProto = defaultDNSResolverProto
+	}
+	if cfg.DNSTimeout == 0 {
+		cfg.DNSTimeout = defaultDNSResolverTimeoutMs
+	}
+	if cfg.UserAgent == "" {
+		cfg.UserAgent = defaultUserAgent
+	}
+	if cfg.RetryMax == 0 {
+		cfg.RetryMax = defaultRetryMax
+	}
+}
+
+func newColly(cfg *HttpConfig) *colly.Collector {
+	cfg.SetDefaultsOnEmptyFields()
+
+	c := colly.NewCollector()
+	c.UserAgent = defaultUserAgent
+	c.SetClient(httpClient(cfg))
 
 	return c
 }
 
-func httpClient() *http.Client {
-	var (
-		dnsResolverIP        = "1.1.1.1:53"
-		dnsResolverProto     = "udp"
-		dnsResolverTimeoutMs = 10000
-	)
-
+func httpClient(cfg *HttpConfig) *http.Client {
 	retryClient := retryablehttp.NewClient()
-	retryClient.RetryMax = 10
+	retryClient.RetryMax = cfg.RetryMax
 
 	dialer := &net.Dialer{
 		Resolver: &net.Resolver{
 			PreferGo: true,
 			Dial: func(ctx context.Context, network, address string) (net.Conn, error) {
 				d := net.Dialer{
-					Timeout: time.Duration(dnsResolverTimeoutMs) * time.Millisecond,
+					Timeout: time.Duration(cfg.DNSTimeout) * time.Millisecond,
 				}
-				return d.DialContext(ctx, dnsResolverProto, dnsResolverIP)
+				return d.DialContext(ctx, cfg.DNSProto, cfg.DNSResolver)
 			},
 		},
 	}
@@ -49,13 +76,15 @@ func httpClient() *http.Client {
 	}
 
 	tr := &http.Transport{
-		//TLSClientConfig: &tls.Config{InsecureSkipVerify: true},
 		DialContext: dialContext,
 	}
+	if cfg.Insecure {
+		tr.TLSClientConfig = &tls.Config{InsecureSkipVerify: true}
+	}
+
 	retryClient.HTTPClient.Transport = tr
 	retryClient.Logger = nil
 	retryClient.RequestLogHook = func(l retryablehttp.Logger, req *http.Request, attempt int) {
-		// remove Accept header since it can cause issues with some websites
 		req.Header.Del("Accept")
 	}
 

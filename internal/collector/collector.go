@@ -31,3 +31,36 @@ func Hash(d Downloadable) string {
 	h.Write([]byte(d.URI()))
 	return fmt.Sprintf("%x", h.Sum(nil))
 }
+
+type CollectorConfig struct {
+	HTTP      HttpConfig
+	PageCount int
+}
+
+type CollectorOption func(*CollectorConfig) error
+
+func WithPageCount(page int) CollectorOption {
+	return func(cfg *CollectorConfig) error {
+		cfg.PageCount = page
+		return nil
+	}
+}
+
+func WithHTTPConfig(http HttpConfig) CollectorOption {
+	return func(cfg *CollectorConfig) error {
+		cfg.HTTP = http
+		return nil
+	}
+}
+
+func processOptions(opts ...CollectorOption) (*CollectorConfig, error) {
+	cfg := CollectorConfig{}
+	for _, opt := range opts {
+		err := opt(&cfg)
+		if err != nil {
+			return nil, err
+		}
+	}
+	cfg.HTTP.SetDefaultsOnEmptyFields()
+	return &cfg, nil
+}

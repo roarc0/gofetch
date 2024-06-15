@@ -8,7 +8,7 @@ import (
 )
 
 type Memory interface {
-	Put(key string) error
+	Put(key string, value string) error
 	Has(key string) bool
 	io.Closer
 }
@@ -43,10 +43,10 @@ func NewMemory(filePath string, bucket string) (Memory, error) {
 	}, nil
 }
 
-func (m *memory) Put(key string) error {
+func (m *memory) Put(key string, value string) error {
 	return m.db.Update(func(tx *bolt.Tx) error {
 		b := tx.Bucket(m.bucket)
-		err := b.Put([]byte(key), []byte("1"))
+		err := b.Put([]byte(key), []byte(value))
 		return err
 	})
 }

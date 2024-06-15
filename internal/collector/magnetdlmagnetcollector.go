@@ -12,22 +12,18 @@ type MagnetDLMagnetCollector struct {
 	uri   string
 }
 
-type MagnetDLMagnetCollectorOption func(*MagnetDLMagnetCollector) error
-
-func NewMagnetDLMagnetCollector(uri string, opts ...MagnetDLMagnetCollectorOption) (*MagnetDLMagnetCollector, error) {
+func NewMagnetDLMagnetCollector(uri string, opts ...CollectorOption) (*MagnetDLMagnetCollector, error) {
 	c := &MagnetDLMagnetCollector{
 		uri: uri,
 	}
 
-	for _, opt := range opts {
-		err := opt(c)
-		if err != nil {
-			return nil, err
-		}
+	cfg, err := processOptions(opts...)
+	if err != nil {
+		return nil, err
 	}
 
 	if c.colly == nil {
-		c.colly = newColly()
+		c.colly = newColly(&cfg.HTTP)
 	}
 
 	return c, nil

@@ -67,15 +67,15 @@ func (mr *MockMemoryMockRecorder) Has(arg0 any) *gomock.Call {
 }
 
 // Put mocks base method.
-func (m *MockMemory) Put(arg0 string) error {
+func (m *MockMemory) Put(arg0, arg1 string) error {
 	m.ctrl.T.Helper()
-	ret := m.ctrl.Call(m, "Put", arg0)
+	ret := m.ctrl.Call(m, "Put", arg0, arg1)
 	ret0, _ := ret[0].(error)
 	return ret0
 }
 
 // Put indicates an expected call of Put.
-func (mr *MockMemoryMockRecorder) Put(arg0 any) *gomock.Call {
+func (mr *MockMemoryMockRecorder) Put(arg0, arg1 any) *gomock.Call {
 	mr.mock.ctrl.T.Helper()
-	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockMemory)(nil).Put), arg0)
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Put", reflect.TypeOf((*MockMemory)(nil).Put), arg0, arg1)
 }

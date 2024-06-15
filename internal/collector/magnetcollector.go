@@ -13,11 +13,21 @@ type MagnetCollector struct {
 	uri   string
 }
 
-func NewMagnetCollector(uri string) (*MagnetCollector, error) {
-	return &MagnetCollector{
-		uri:   uri,
-		colly: newColly(),
-	}, nil
+func NewMagnetCollector(uri string, opts ...CollectorOption) (*MagnetCollector, error) {
+	c := &MagnetCollector{
+		uri: uri,
+	}
+
+	cfg, err := processOptions(opts...)
+	if err != nil {
+		return nil, err
+	}
+
+	if c.colly == nil {
+		c.colly = newColly(&cfg.HTTP)
+	}
+
+	return c, nil
 }
 
 func (c *MagnetCollector) Collect(ctx context.Context) ([]Downloadable, error) {

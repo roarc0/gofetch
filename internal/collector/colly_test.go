@@ -18,12 +18,12 @@ func Test_httpClient(t *testing.T) {
 		t.Skip("MAGNETDL_URL not set")
 	}
 
-	client := httpClient()
+	client := httpClient(&HttpConfig{})
 
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	require.NoError(t, err)
 
-	req.Header.Set("User-Agent", userAgent)
+	req.Header.Set("User-Agent", defaultUserAgent)
 	//req.Header.Set("Accept", "*/*")
 
 	resp, err := client.Do(req)
@@ -46,7 +46,7 @@ func Test_colly(t *testing.T) {
 		t.Skip("MAGNETDL_URL not set")
 	}
 
-	c := newColly()
+	c := newColly(&HttpConfig{})
 	count := 0
 	c.OnHTML("a", func(e *colly.HTMLElement) {
 		log.Println(e.Attr("href"))
