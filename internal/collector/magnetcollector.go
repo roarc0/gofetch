@@ -16,7 +16,7 @@ type MagnetCollector struct {
 func NewMagnetCollector(uri string) (*MagnetCollector, error) {
 	return &MagnetCollector{
 		uri:   uri,
-		colly: colly.NewCollector(),
+		colly: newColly(),
 	}, nil
 }
 

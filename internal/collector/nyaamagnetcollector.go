@@ -32,13 +32,6 @@ type NyaaMagnetCollectorOption func(*NyaaMagnetCollector) error
 // 	}
 // }
 
-// func WithColly(colly *colly.Collector) NyaaMagnetCollectorOption {
-// 	return func(c *NyaaMagnetCollector) error {
-// 		c.colly = colly
-// 		return nil
-// 	}
-// }
-
 func NewNyaaMagnetCollector(uri string, opts ...NyaaMagnetCollectorOption) (*NyaaMagnetCollector, error) {
 	c := &NyaaMagnetCollector{
 		uri: uri,
@@ -52,7 +45,7 @@ func NewNyaaMagnetCollector(uri string, opts ...NyaaMagnetCollectorOption) (*Nya
 	}
 
 	if c.colly == nil {
-		c.colly = colly.NewCollector()
+		c.colly = newColly()
 	}
 
 	return c, nil

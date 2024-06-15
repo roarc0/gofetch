@@ -27,7 +27,7 @@ func NewMagnetDLMagnetCollector(uri string, opts ...MagnetDLMagnetCollectorOptio
 	}
 
 	if c.colly == nil {
-		c.colly = colly.NewCollector()
+		c.colly = newColly()
 	}
 
 	return c, nil
