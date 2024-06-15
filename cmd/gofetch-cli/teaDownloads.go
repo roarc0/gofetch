@@ -35,14 +35,14 @@ type dlsMsg struct {
 type dlsDoneMsg []collector.Downloadable
 
 func (m downloadsModel) Init() tea.Cmd {
-	return fetch(m.gf)
+	return fetchCommand(m.gf)
 }
 
 func (m downloadsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case tea.KeyMsg:
 		switch msg.String() {
-		case "ctrl+c":
+		case "ctrl+c", "ctrl+d":
 			return m, tea.Quit
 		case "esc":
 			return commandModel(m.gf), nil
@@ -65,7 +65,7 @@ func (m downloadsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			if m.err != nil {
 				return commandModel(m.gf), nil
 			}
-			return m, m.download()
+			return m, m.downloadCommand()
 		}
 	case dlsMsg:
 		m.fetchDone(msg)
@@ -89,15 +89,13 @@ func (m downloadsModel) View() string {
 	}
 
 	if len(m.newDls) == 0 {
-		s := "\nNo new downloads found.\n"
-		if len(m.allDls) > 0 {
-			s += fmt.Sprintf("Already downloaded items count: %d\n", len(m.allDls))
-			s += downloadsListCapped(m.allDls)
-		}
-		s += "\n"
-		return s
+		return m.alreadyDownloadedList()
 	}
 
+	return m.downloadPrompt()
+}
+
+func (m downloadsModel) downloadPrompt() string {
 	s := "Select the items you want to download \n"
 
 	for i, dl := range m.newDls {
@@ -115,7 +113,16 @@ func (m downloadsModel) View() string {
 	}
 
 	s += "\nPress <enter> to download, <esc> to abort.\n"
+	return s
+}
 
+func (m downloadsModel) alreadyDownloadedList() string {
+	s := "\nNo new downloads found.\n"
+	if len(m.allDls) > 0 {
+		s += fmt.Sprintf("Already downloaded items count: %d\n", len(m.allDls))
+		s += downloadsListCapped(m.allDls)
+	}
+	s += "\n"
 	return s
 }
 
@@ -142,7 +149,18 @@ func newDownloadsModel(gf *gofetch.GoFetch) tea.Model {
 	}
 }
 
-func fetch(gf *gofetch.GoFetch) tea.Cmd {
+func (m *downloadsModel) fetchDone(dls dlsMsg) {
+	m.fetched = true
+	m.newDls = dls.new
+	m.allDls = dls.all
+	for i, dl := range m.newDls {
+		if !dl.Optional {
+			m.selected[i] = struct{}{}
+		}
+	}
+}
+
+func fetchCommand(gf *gofetch.GoFetch) tea.Cmd {
 	return func() tea.Msg {
 		dls, err := gf.Fetch()
 		if err != nil {
@@ -158,18 +176,7 @@ func fetch(gf *gofetch.GoFetch) tea.Cmd {
 	}
 }
 
-func (m *downloadsModel) fetchDone(dls dlsMsg) {
-	m.fetched = true
-	m.newDls = dls.new
-	m.allDls = dls.all
-	for i, dl := range m.newDls {
-		if !dl.Optional {
-			m.selected[i] = struct{}{}
-		}
-	}
-}
-
-func (m downloadsModel) download() tea.Cmd {
+func (m downloadsModel) downloadCommand() tea.Cmd {
 	return func() tea.Msg {
 		dls := make([]collector.Downloadable, 0)
 		for i := range m.selected {

@@ -13,7 +13,6 @@ import (
 
 // TransmissionDownloader is a type that implements the Downloader interface to open a downloadable using xdg-open.
 type TransmissionDownloader struct {
-	Downloadable
 	Transmission *TransmissionConfig
 	client       *http.Client
 }
@@ -57,7 +56,7 @@ func (d *TransmissionDownloader) Download(dl Downloadable) error {
 		return err
 	}
 
-	body, err := getBody(d.URI())
+	body, err := getBody(dl.URI())
 	if err != nil {
 		return err
 	}

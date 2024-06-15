@@ -73,6 +73,7 @@ func (gf *GoFetch) DownloadAll(dls []collector.Downloadable) {
 		err := gf.Download(dl)
 		if err != nil {
 			log.Println("Error:", err)
+			continue
 		}
 		log.Println("Downloading:", dl.Name())
 	}

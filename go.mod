@@ -5,6 +5,7 @@ go 1.22.4
 require (
 	github.com/charmbracelet/lipgloss v0.11.0
 	github.com/gocolly/colly/v2 v2.1.0
+	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/roarc0/go-magnet v0.0.0-20240608130713-0e0864009fc8
 	go.uber.org/mock v0.4.0
@@ -22,7 +23,6 @@ require (
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
-	github.com/hashicorp/go-retryablehttp v0.7.7 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect

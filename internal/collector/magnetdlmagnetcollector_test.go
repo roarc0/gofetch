@@ -6,7 +6,10 @@ import (
 	"errors"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 //go:embed testdata/magnetdl.html
@@ -20,8 +23,7 @@ func TestMagnetDLMagnetCollectorCollect(t *testing.T) {
 	defer srv.Close()
 
 	tests := []struct {
-		name string
-
+		name      string
 		collector DownloadableCollector
 		wantFn    func(ds []Downloadable, err error) error
 	}{
@@ -54,4 +56,18 @@ func TestMagnetDLMagnetCollectorCollect(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestNewMagnetDLMagnetCollector(t *testing.T) {
+	url := os.Getenv("MAGNETDL_URL")
+
+	if url == "" {
+		t.Skip("MAGNETDL_URL not set")
+	}
+
+	c, err := NewMagnetDLMagnetCollector(url)
+	require.NoError(t, err)
+	got, err := c.Collect(context.Background())
+	require.NoError(t, err)
+	require.NotEmpty(t, got)
 }

@@ -69,10 +69,14 @@ func (c *MagnetDLMagnetCollector) Collect(ctx context.Context) ([]Downloadable, 
 	// 		if strings.HasSuffix(text, "months") {
 	// 			t, err := dateparse.ParseAny(fmt.Sprintf("%s ago", text))
 	// 			if err != nil {
-	// 				fmt.Println(err)
 	// 				return
 	// 			}
 	// 			tmpMagnet.time = t
+	// 		}
+
+	// 		if tmpMagnet.name != "" && tmpMagnet.uri != "" {
+	// 			dls = append(dls, tmpMagnet)
+	// 			tmpMagnet = Magnet{}
 	// 		}
 	// 	})
 

@@ -35,7 +35,7 @@ func main() {
 
 	switch *mode {
 	case "auto":
-		fetchAll(gf, true)
+		autoFetchAll(gf, true)
 	case "manual":
 		runTea(gf)
 	}

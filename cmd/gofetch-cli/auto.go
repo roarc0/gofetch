@@ -6,11 +6,13 @@ import (
 	"github.com/rs/zerolog/log"
 )
 
-func fetchAll(gf *gofetch.GoFetch, filterOptional bool) {
+func autoFetchAll(gf *gofetch.GoFetch, filterOptional bool) {
 	dls, err := gf.Fetch()
 	if err != nil {
 		log.Error().Err(err).Msg("Failed to fetch")
 	}
+
+	log.Info().Msgf("Found %d downloadables", len(dls))
 
 	var filteredDls []filter.MatchedDownloadable
 	if filterOptional {

@@ -3,6 +3,8 @@ package collector
 import (
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 func TestTransmissionDownloader_Open(t *testing.T) {
@@ -26,5 +28,6 @@ func TestTransmissionDownloader_Open(t *testing.T) {
 		},
 	)
 
-	td.Download(magnet)
+	err := td.Download(magnet)
+	require.NoError(t, err)
 }
