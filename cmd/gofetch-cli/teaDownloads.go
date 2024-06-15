@@ -10,6 +10,10 @@ import (
 	"github.com/roarc0/gofetch/internal/gofetch"
 )
 
+const (
+	maxPrintableDownloads = 100
+)
+
 type downloadsModel struct {
 	gf *gofetch.GoFetch
 
@@ -87,16 +91,8 @@ func (m downloadsModel) View() string {
 	if len(m.newDls) == 0 {
 		s := "\nNo new downloads found.\n"
 		if len(m.allDls) > 0 {
-			s += fmt.Sprintf("Already downloaded count: %d\n", len(m.allDls))
-			max := 10
-			if len(m.allDls) < max {
-				max = len(m.allDls)
-			}
-
-			for _, dl := range m.allDls[:max] {
-				s += fmt.Sprintf("- %s\n", dl.Name())
-			}
-			s += "...\n"
+			s += fmt.Sprintf("Already downloaded items count: %d\n", len(m.allDls))
+			s += downloadsListCapped(m.allDls)
 		}
 		s += "\n"
 		return s
@@ -123,6 +119,22 @@ func (m downloadsModel) View() string {
 	return s
 }
 
+func downloadsListCapped(dls []filter.MatchedDownloadable) string {
+	max := maxPrintableDownloads
+	if len(dls) < max {
+		max = len(dls)
+	}
+
+	s := ""
+	for _, dl := range dls[:max] {
+		s += fmt.Sprintf("- %s\n", dl.Name())
+	}
+	if len(dls) > max {
+		s += fmt.Sprintf("%d more ...\n", len(dls)-max)
+	}
+	return s
+}
+
 func newDownloadsModel(gf *gofetch.GoFetch) tea.Model {
 	return downloadsModel{
 		gf:       gf,
@@ -137,7 +149,7 @@ func fetch(gf *gofetch.GoFetch) tea.Cmd {
 			return errMsg(err)
 		}
 
-		undownloadedDls := gf.Undownloaded(dls)
+		undownloadedDls := gf.FilterNewDonwloads(dls)
 
 		return dlsMsg{
 			new: undownloadedDls,
