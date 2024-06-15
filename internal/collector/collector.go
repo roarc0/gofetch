@@ -23,8 +23,7 @@ type Downloadable interface {
 
 // Downloader is an interface that defines a method to open a downloadable.
 type Downloader interface {
-	Downloadable
-	Download() error
+	Download(d Downloadable) error
 }
 
 func Hash(d Downloadable) string {

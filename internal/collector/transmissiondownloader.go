@@ -41,9 +41,8 @@ var (
 )
 
 // NewTransmissionDownloader creates a new TransmissionDownloader
-func NewTransmissionDownloader(downloadable Downloadable, connection *TransmissionConfig) *TransmissionDownloader {
+func NewTransmissionDownloader(connection *TransmissionConfig) *TransmissionDownloader {
 	return &TransmissionDownloader{
-		Downloadable: downloadable,
 		Transmission: connection,
 		client: &http.Client{
 			Timeout: 10 * time.Second,
@@ -52,7 +51,7 @@ func NewTransmissionDownloader(downloadable Downloadable, connection *Transmissi
 }
 
 // Download does an http post to a trasmission server to download the torrent file
-func (d *TransmissionDownloader) Download() error {
+func (d *TransmissionDownloader) Download(dl Downloadable) error {
 	sessionID, err := d.getSessionID()
 	if err != nil {
 		return err

@@ -17,15 +17,17 @@ const (
 )
 
 type GoFetch struct {
-	cfg    *config.Config
-	memory memory.Memory
+	cfg        *config.Config
+	memory     memory.Memory
+	downloader collector.Downloader
 }
 
 // NewGoFetch creates a new GoFetch object.
 func NewGoFetch(cfg *config.Config, memory memory.Memory) (*GoFetch, error) {
 	return &GoFetch{
-		cfg:    cfg,
-		memory: memory,
+		cfg:        cfg,
+		memory:     memory,
+		downloader: collector.NewTransmissionDownloader(&cfg.Transmission),
 	}, nil
 }
 
@@ -57,7 +59,7 @@ func (gf *GoFetch) Fetch() (dls []filter.MatchedDownloadable, err error) {
 	return dls, nil
 }
 
-func (gf *GoFetch) Undownloaded(dls []filter.MatchedDownloadable) []filter.MatchedDownloadable {
+func (gf *GoFetch) FilterNewDonwloads(dls []filter.MatchedDownloadable) []filter.MatchedDownloadable {
 	return filter.FilterDownloadables(
 		dls,
 		func(d filter.MatchedDownloadable) bool {
@@ -70,13 +72,9 @@ func (gf *GoFetch) DownloadAll(dls []collector.Downloadable) {
 	for _, dl := range dls {
 		err := gf.Download(dl)
 		if err != nil {
-			if err.Error() == "already downloaded" {
-				log.Printf("Already downloaded %q\n", dl.Name())
-			} else {
-				log.Println(err)
-			}
+			log.Println("Error:", err)
 		}
-		log.Printf("Downloaded: %q\n", dl.Name())
+		log.Println("Downloading:", dl.Name())
 	}
 }
 
@@ -87,9 +85,7 @@ func (g *GoFetch) Download(dl collector.Downloadable) error {
 		return fmt.Errorf("already downloaded: %s", dl.Name())
 	}
 
-	err := collector.
-		NewTransmissionDownloader(dl, &g.cfg.Transmission).
-		Download()
+	err := g.downloader.Download(dl)
 	if err != nil {
 		return fmt.Errorf("failed to download: %w", err)
 	}

@@ -7,13 +7,11 @@ import (
 )
 
 // XDGDownloader is a type that implements the Downloader interface to open a downloadable using xdg-open.
-type XDGDownloader struct {
-	Downloadable
-}
+type XDGDownloader struct{}
 
 // Download opens the URI of the downloadable using xdg-open.
-func (d XDGDownloader) Download() error {
-	cmd := exec.Command("xdg-open", d.URI())
+func (d XDGDownloader) Download(dl Downloadable) error {
+	cmd := exec.Command("xdg-open", dl.URI())
 
 	err := cmd.Start()
 	if err != nil {
