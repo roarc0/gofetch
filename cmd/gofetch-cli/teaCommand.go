@@ -26,7 +26,7 @@ func commandModel(gf *gofetch.GoFetch) model {
 		Foreground(lipgloss.Color("#333"))
 	ti.PromptStyle = lipgloss.NewStyle().
 		Bold(true).
-		Foreground(lipgloss.Color("#7D56F4"))
+		Foreground(lipgloss.Color("205"))
 	ti.CharLimit = 128
 	ti.Width = 20
 

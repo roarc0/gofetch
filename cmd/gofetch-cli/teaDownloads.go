@@ -3,7 +3,9 @@ package main
 import (
 	"fmt"
 
+	"github.com/charmbracelet/bubbles/spinner"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/charmbracelet/lipgloss"
 
 	"github.com/roarc0/gofetch/internal/gofetch"
 )
@@ -12,6 +14,15 @@ const (
 	maxPrintableDownloads = 100
 )
 
+type inDlsMsg []gofetch.Downloadable
+
+type outDl struct {
+	idx int
+	err error
+}
+
+type outDlsMsg []outDl
+
 type downloadsModel struct {
 	gf *gofetch.GoFetch
 
@@ -19,20 +30,32 @@ type downloadsModel struct {
 	cursor   int
 	selected map[int]gofetch.Action
 
-	fetched bool
-	allDls  []gofetch.Downloadable
-	newDls  []gofetch.Downloadable
+	fetchingSpinner spinner.Model
+	fetched         bool
+
+	allDls []gofetch.Downloadable
+	newDls []gofetch.Downloadable
 }
 
-type dlsMsg []gofetch.Downloadable
+func newDownloadsModel(gf *gofetch.GoFetch) tea.Model {
+	m := downloadsModel{
+		gf:       gf,
+		selected: make(map[int]gofetch.Action, 0),
+	}
 
-type dlDoneMsg struct {
-	idx int
-	err error
+	s := spinner.New()
+	s.Spinner = spinner.Dot
+	s.Style = lipgloss.NewStyle().Foreground(lipgloss.Color("205"))
+	m.fetchingSpinner = s
+
+	return m
 }
 
 func (m downloadsModel) Init() tea.Cmd {
-	return fetchCommand(m.gf)
+	return tea.Batch(
+		m.fetchingSpinner.Tick,
+		m.fetchCommand(),
+	)
 }
 
 func (m downloadsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
@@ -69,17 +92,23 @@ func (m downloadsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 			return m, m.downloadCommand()
 		}
-	case dlsMsg:
+	case inDlsMsg:
 		m.fetchDone(msg)
 	case errMsg:
 		m.fetched = true
 		m.err = msg
-	case []dlDoneMsg:
+	case outDlsMsg:
 		if len(m.newDls) == 0 {
 			return commandModel(m.gf), nil
 		}
 		nm := newDownloadsModel(m.gf)
 		return nm, nm.Init()
+	case spinner.TickMsg:
+		if !m.fetched {
+			var cmd tea.Cmd
+			m.fetchingSpinner, cmd = m.fetchingSpinner.Update(msg)
+			return m, cmd
+		}
 	}
 
 	return m, nil
@@ -87,7 +116,7 @@ func (m downloadsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 
 func (m downloadsModel) View() string {
 	if !m.fetched {
-		return "\nFetching...\n"
+		return fmt.Sprintf("\n\n %s Loading ... press q to quit\n\n", m.fetchingSpinner.View())
 	}
 
 	if m.err != nil {
@@ -136,11 +165,11 @@ func (m downloadsModel) showAlreadyProcessed() string {
 		return "\nNo items found.\n"
 	}
 
-	s := fmt.Sprintf("\nAll found items (%d) have been processed.\n", len(m.allDls))
+	s := fmt.Sprintf("\nAll items (%d) have been already processed.\n\n", len(m.allDls))
 	if len(m.allDls) > 0 {
 		s += showListCapped(m.allDls)
+		s += "\n"
 	}
-	s += "\n"
 
 	return s
 }
@@ -161,14 +190,7 @@ func showListCapped(dls []gofetch.Downloadable) string {
 	return s
 }
 
-func newDownloadsModel(gf *gofetch.GoFetch) tea.Model {
-	return downloadsModel{
-		gf:       gf,
-		selected: make(map[int]gofetch.Action, 0),
-	}
-}
-
-func (m *downloadsModel) fetchDone(dls dlsMsg) {
+func (m *downloadsModel) fetchDone(dls inDlsMsg) {
 	m.fetched = true
 	m.allDls = dls
 
@@ -186,20 +208,20 @@ func (m *downloadsModel) fetchDone(dls dlsMsg) {
 	}
 }
 
-func fetchCommand(gf *gofetch.GoFetch) tea.Cmd {
+func (m downloadsModel) fetchCommand() tea.Cmd {
 	return func() tea.Msg {
-		dls, err := gf.Fetch()
+		dls, err := m.gf.Fetch()
 		if err != nil {
 			return errMsg(err)
 		}
 
-		return dlsMsg(dls)
+		return inDlsMsg(dls)
 	}
 }
 
 func (m downloadsModel) downloadCommand() tea.Cmd {
 	return func() tea.Msg {
-		var doneMsg []dlDoneMsg
+		var msg outDlsMsg
 		for i, action := range m.selected {
 			dl := m.newDls[i]
 			var err error
@@ -210,10 +232,10 @@ func (m downloadsModel) downloadCommand() tea.Cmd {
 				err = m.gf.Ignore(dl)
 			}
 
-			doneMsg = append(doneMsg, dlDoneMsg{i, err})
+			msg = append(msg, outDl{i, err})
 		}
 
-		return doneMsg
+		return msg
 	}
 }
 
