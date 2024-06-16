@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/require"
+	"go.uber.org/mock/gomock"
 
 	"github.com/roarc0/gofetch/internal/collector"
 	"github.com/roarc0/gofetch/internal/config"
@@ -45,9 +46,12 @@ func TestGoFetch(t *testing.T) {
 		},
 	}
 
-	mockMemory := mocks.MockMemory{}
+	mockCtlr := gomock.NewController(t)
+	mockMemory := mocks.NewMockMemory(gomock.NewController(t))
+	mockMemory.EXPECT().Has(gomock.Any()).Return(false).AnyTimes()
+	defer mockCtlr.Finish()
 
-	g, err := NewGoFetch(&cfg, &mockMemory)
+	g, err := NewGoFetch(&cfg, mockMemory)
 	require.NoError(t, err)
 
 	dls, err := g.Fetch()
