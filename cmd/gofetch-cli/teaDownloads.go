@@ -5,7 +5,6 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
-	"github.com/roarc0/gofetch/internal/collector"
 	"github.com/roarc0/gofetch/internal/gofetch"
 )
 
@@ -16,7 +15,8 @@ const (
 type action int
 
 const (
-	downloadAction action = iota
+	invalidAction action = iota
+	downloadAction
 	ignoreAction
 )
 
@@ -50,7 +50,7 @@ func (m downloadsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		switch msg.String() {
 		case "ctrl+c", "ctrl+d":
 			return m, tea.Quit
-		case "esc":
+		case "esc", "q":
 			return commandModel(m.gf), nil
 		case "up", "k":
 			if m.cursor > 0 {
@@ -62,13 +62,19 @@ func (m downloadsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			}
 		case " ":
 			m.updateSelected()
+		case "i":
+			m.changeAllActions(downloadAction, ignoreAction)
+		case "u":
+			m.changeAllActions(downloadAction, invalidAction)
+		case "d":
+			m.changeAllActions(ignoreAction, downloadAction)
+		case "ctrl+s":
+			return m, m.streamCommand()
 		case "enter":
 			if m.err != nil {
 				return commandModel(m.gf), nil
 			}
 			return m, m.downloadCommand()
-		case "ctrl+w":
-			return m, m.webtorrentCommand()
 		}
 	case dlsMsg:
 		m.fetchDone(msg)
@@ -118,7 +124,9 @@ func (m downloadsModel) View() string {
 func (m downloadsModel) downloadPrompt() string {
 	s := "Press <space> to change the action to perform on each item \n"
 	s += "[D] to download, [I] to ignore [ ] to do nothing\n\n"
-	s += "press Ctrl+W to start webtorrent\n\n"
+	s += "press <j>,<k> or use arrow keys to navigate\n"
+	s += "press <i> to ignore all, <d> to download all, <u> to unselect all\n"
+	s += "press <Ctrl+s> to stream (needs webtorrent installed)\n\n"
 	for i, dl := range m.newDls {
 		cursor := " "
 		if m.cursor == i {
@@ -224,13 +232,23 @@ func (m downloadsModel) downloadCommand() tea.Cmd {
 	}
 }
 
-func (m downloadsModel) webtorrentCommand() tea.Cmd {
+func (m downloadsModel) streamCommand() tea.Cmd {
 	return func() tea.Msg {
 		dl := m.newDls[m.cursor]
 
-		downloader := collector.WebTorrentDownloader{}
-		err := downloader.Download(dl)
+		err := m.gf.Stream(dl)
 
 		return errMsg(err)
+	}
+}
+
+func (m *downloadsModel) changeAllActions(from action, to action) {
+	for k, v := range m.selected {
+		if to == invalidAction {
+			delete(m.selected, k)
+		}
+		if v == from {
+			m.selected[k] = to
+		}
 	}
 }

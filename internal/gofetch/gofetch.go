@@ -88,6 +88,12 @@ func (g *GoFetch) Download(dl Downloadable) error {
 	return nil
 }
 
+func (gf *GoFetch) Stream(dl Downloadable) error {
+	downloader := collector.WebTorrentDownloader{}
+	err := downloader.Download(dl)
+	return err
+}
+
 func (gf *GoFetch) Ignore(dl Downloadable) error {
 	hash := collector.Hash(dl)
 
