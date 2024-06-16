@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
@@ -14,6 +13,24 @@ const (
 	maxPrintableDownloads = 100
 )
 
+type action int
+
+const (
+	downloadAction action = iota
+	ignoreAction
+)
+
+func (a action) String() string {
+	switch a {
+	case downloadAction:
+		return "download"
+	case ignoreAction:
+		return "ignore"
+	default:
+		return ""
+	}
+}
+
 type downloadsModel struct {
 	gf *gofetch.GoFetch
 
@@ -22,7 +39,7 @@ type downloadsModel struct {
 
 	err      error
 	cursor   int
-	selected map[int]struct{}
+	selected map[int]action
 
 	fetched bool
 }
@@ -32,7 +49,11 @@ type dlsMsg struct {
 	all []filter.MatchedDownloadable
 }
 
-type dlsDoneMsg []collector.Downloadable
+type dlDoneMsg struct {
+	dl     collector.Downloadable
+	action action
+	error  error
+}
 
 func (m downloadsModel) Init() tea.Cmd {
 	return fetchCommand(m.gf)
@@ -55,12 +76,7 @@ func (m downloadsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 		case " ":
-			_, ok := m.selected[m.cursor]
-			if ok {
-				delete(m.selected, m.cursor)
-			} else {
-				m.selected[m.cursor] = struct{}{}
-			}
+			m.updateSelected()
 		case "enter":
 			if m.err != nil {
 				return commandModel(m.gf), nil
@@ -72,11 +88,24 @@ func (m downloadsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	case errMsg:
 		m.fetched = true
 		m.err = msg
-	case dlsDoneMsg:
+	case []dlDoneMsg:
 		return commandModel(m.gf), nil
 	}
 
 	return m, nil
+}
+
+func (m *downloadsModel) updateSelected() {
+	if v, ok := m.selected[m.cursor]; ok {
+		switch v {
+		case downloadAction:
+			m.selected[m.cursor] = ignoreAction
+		case ignoreAction:
+			delete(m.selected, m.cursor)
+		}
+	} else {
+		m.selected[m.cursor] = downloadAction
+	}
 }
 
 func (m downloadsModel) View() string {
@@ -96,8 +125,8 @@ func (m downloadsModel) View() string {
 }
 
 func (m downloadsModel) downloadPrompt() string {
-	s := "Select the items you want to download \n"
-
+	s := "Select the items you want to download or ignore \n"
+	s += "[D] to download, [I] to ignore [ ] to do nothing\n\n"
 	for i, dl := range m.newDls {
 		cursor := " "
 		if m.cursor == i {
@@ -105,14 +134,19 @@ func (m downloadsModel) downloadPrompt() string {
 		}
 
 		checked := " "
-		if _, ok := m.selected[i]; ok {
-			checked = "x"
+		if v, ok := m.selected[i]; ok {
+			switch v {
+			case downloadAction:
+				checked = "D"
+			case ignoreAction:
+				checked = "I"
+			}
 		}
 
 		s += fmt.Sprintf("%s [%s] %s\n", cursor, checked, dl.Name())
 	}
 
-	s += "\nPress <enter> to download, <esc> to abort.\n"
+	s += "\nPress <enter> to proceed, <esc> to abort.\n"
 	return s
 }
 
@@ -145,7 +179,7 @@ func downloadsListCapped(dls []filter.MatchedDownloadable) string {
 func newDownloadsModel(gf *gofetch.GoFetch) tea.Model {
 	return downloadsModel{
 		gf:       gf,
-		selected: make(map[int]struct{}, 0),
+		selected: make(map[int]action, 0),
 	}
 }
 
@@ -155,7 +189,7 @@ func (m *downloadsModel) fetchDone(dls dlsMsg) {
 	m.allDls = dls.all
 	for i, dl := range m.newDls {
 		if !dl.Optional {
-			m.selected[i] = struct{}{}
+			m.selected[i] = downloadAction
 		}
 	}
 }
@@ -178,19 +212,20 @@ func fetchCommand(gf *gofetch.GoFetch) tea.Cmd {
 
 func (m downloadsModel) downloadCommand() tea.Cmd {
 	return func() tea.Msg {
-		dls := make([]collector.Downloadable, 0)
-		for i := range m.selected {
-			dls = append(dls, m.newDls[i].Downloadable)
-		}
-		var errs []error
-		for _, dl := range dls {
-			if err := m.gf.Download(dl); err != nil {
-				errs = append(errs, err)
+		var done []dlDoneMsg
+		for _, i := range m.selected {
+			dl := m.newDls[i].Downloadable
+			var err error
+			switch i {
+			case downloadAction:
+				err = m.gf.Download(dl)
+			case ignoreAction:
+				err = m.gf.Ignore(dl)
 			}
+
+			done = append(done, dlDoneMsg{dl, i, err})
 		}
-		if len(errs) > 0 {
-			return errMsg(errors.Join(errs...))
-		}
-		return dlsDoneMsg(dls)
+
+		return done
 	}
 }
