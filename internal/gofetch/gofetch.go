@@ -17,7 +17,32 @@ const (
 type Downloadable struct {
 	collector.Downloadable
 	Optional bool
-	Seen     bool // TODO see if it has been downloaded or ignored
+	Action   Action
+}
+
+type Action int
+
+const (
+	NoAction Action = iota
+	DownloadAction
+	IgnoreAction
+)
+
+func (a Action) String() string {
+	switch a {
+	case NoAction:
+		return ""
+	case DownloadAction:
+		return "downloaded"
+	case IgnoreAction:
+		return "ignored"
+	default:
+		return "unknown"
+	}
+}
+
+func (a Action) Seen() bool {
+	return a == DownloadAction || a == IgnoreAction
 }
 
 type GoFetch struct {
@@ -58,10 +83,27 @@ func (gf *GoFetch) Fetch() (dls []Downloadable, err error) {
 		}
 
 		for _, dl := range filteredDownloads {
+			var action Action
+
+			actionPtr, err := gf.memory.Get(collector.Hash(dl))
+			if err != nil {
+				return nil, err
+			}
+			switch *actionPtr {
+			case DownloadAction.String():
+				action = DownloadAction
+			case IgnoreAction.String():
+				action = IgnoreAction
+			case NoAction.String():
+				fallthrough
+			default:
+				action = NoAction
+			}
+
 			dls = append(dls, Downloadable{
 				Downloadable: dl,
 				Optional:     dl.Optional,
-				Seen:         gf.memory.Has(collector.Hash(dl)),
+				Action:       action,
 			})
 		}
 	}
@@ -72,7 +114,7 @@ func (gf *GoFetch) Fetch() (dls []Downloadable, err error) {
 func (g *GoFetch) Download(dl Downloadable) error {
 	hash := collector.Hash(dl)
 	if g.memory.Has(hash) {
-		return fmt.Errorf("already downloaded: %s", dl.Name())
+		return fmt.Errorf("already processed: %s", dl.Name())
 	}
 
 	err := g.downloader.Download(dl)
@@ -80,18 +122,12 @@ func (g *GoFetch) Download(dl Downloadable) error {
 		return fmt.Errorf("failed to download: %w", err)
 	}
 
-	err = g.memory.Put(hash, "d")
+	err = g.memory.Put(hash, DownloadAction.String())
 	if err != nil {
-		return fmt.Errorf("failed to save download to memory: %w", err)
+		return fmt.Errorf("failed to save to memory: %w", err)
 	}
 
 	return nil
-}
-
-func (gf *GoFetch) Stream(dl Downloadable) error {
-	downloader := collector.WebTorrentDownloader{}
-	err := downloader.Download(dl)
-	return err
 }
 
 func (gf *GoFetch) Ignore(dl Downloadable) error {
@@ -101,10 +137,14 @@ func (gf *GoFetch) Ignore(dl Downloadable) error {
 		return fmt.Errorf("already ignored: %s", dl.Name())
 	}
 
-	err := gf.memory.Put(hash, "i")
+	err := gf.memory.Put(hash, IgnoreAction.String())
 	if err != nil {
 		return fmt.Errorf("failed to save ignore to memory: %w", err)
 	}
 
 	return nil
+}
+
+func (gf *GoFetch) Stream(dl Downloadable) error {
+	return collector.WebTorrentDownloader{}.Download(dl)
 }

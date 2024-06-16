@@ -9,6 +9,7 @@ import (
 
 type Memory interface {
 	Put(key string, value string) error
+	Get(key string) (*string, error)
 	Has(key string) bool
 	io.Closer
 }
@@ -49,6 +50,22 @@ func (m *memory) Put(key string, value string) error {
 		err := b.Put([]byte(key), []byte(value))
 		return err
 	})
+}
+
+func (m *memory) Get(key string) (*string, error) {
+	var value string
+	err := m.db.View(func(tx *bolt.Tx) error {
+		b := tx.Bucket(m.bucket)
+		v := b.Get([]byte(key))
+		value = string(v)
+		return nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	return &value, nil
 }
 
 func (m *memory) Has(key string) bool {

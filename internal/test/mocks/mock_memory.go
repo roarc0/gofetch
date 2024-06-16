@@ -52,6 +52,21 @@ func (mr *MockMemoryMockRecorder) Close() *gomock.Call {
 	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Close", reflect.TypeOf((*MockMemory)(nil).Close))
 }
 
+// Get mocks base method.
+func (m *MockMemory) Get(arg0 string) (*string, error) {
+	m.ctrl.T.Helper()
+	ret := m.ctrl.Call(m, "Get", arg0)
+	ret0, _ := ret[0].(*string)
+	ret1, _ := ret[1].(error)
+	return ret0, ret1
+}
+
+// Get indicates an expected call of Get.
+func (mr *MockMemoryMockRecorder) Get(arg0 any) *gomock.Call {
+	mr.mock.ctrl.T.Helper()
+	return mr.mock.ctrl.RecordCallWithMethodType(mr.mock, "Get", reflect.TypeOf((*MockMemory)(nil).Get), arg0)
+}
+
 // Has mocks base method.
 func (m *MockMemory) Has(arg0 string) bool {
 	m.ctrl.T.Helper()

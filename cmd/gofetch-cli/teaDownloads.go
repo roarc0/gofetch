@@ -12,32 +12,23 @@ const (
 	maxPrintableDownloads = 100
 )
 
-type action int
-
-const (
-	invalidAction action = iota
-	downloadAction
-	ignoreAction
-)
-
 type downloadsModel struct {
 	gf *gofetch.GoFetch
 
-	allDls []gofetch.Downloadable
-	newDls []gofetch.Downloadable
-
 	err      error
 	cursor   int
-	selected map[int]action
+	selected map[int]gofetch.Action
 
 	fetched bool
+	allDls  []gofetch.Downloadable
+	newDls  []gofetch.Downloadable
 }
 
 type dlsMsg []gofetch.Downloadable
 
 type dlDoneMsg struct {
-	index int
-	error error
+	idx int
+	err error
 }
 
 func (m downloadsModel) Init() tea.Cmd {
@@ -61,13 +52,15 @@ func (m downloadsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				m.cursor++
 			}
 		case " ":
-			m.updateSelected()
+			m.selectionUpdate()
+		case "a":
+			m.selectionChangeAll(gofetch.NoAction, gofetch.DownloadAction)
+			m.selectionChangeAll(gofetch.IgnoreAction, gofetch.DownloadAction)
 		case "i":
-			m.changeAllActions(downloadAction, ignoreAction)
+			m.selectionChangeAll(gofetch.DownloadAction, gofetch.IgnoreAction)
+			m.selectionChangeAll(gofetch.NoAction, gofetch.IgnoreAction)
 		case "u":
-			m.changeAllActions(downloadAction, invalidAction)
-		case "d":
-			m.changeAllActions(ignoreAction, downloadAction)
+			m.selectionChangeAll(gofetch.DownloadAction, gofetch.NoAction)
 		case "ctrl+s":
 			return m, m.streamCommand()
 		case "enter":
@@ -92,19 +85,6 @@ func (m downloadsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	return m, nil
 }
 
-func (m *downloadsModel) updateSelected() {
-	if v, ok := m.selected[m.cursor]; ok {
-		switch v {
-		case downloadAction:
-			m.selected[m.cursor] = ignoreAction
-		case ignoreAction:
-			delete(m.selected, m.cursor)
-		}
-	} else {
-		m.selected[m.cursor] = downloadAction
-	}
-}
-
 func (m downloadsModel) View() string {
 	if !m.fetched {
 		return "\nFetching...\n"
@@ -115,18 +95,19 @@ func (m downloadsModel) View() string {
 	}
 
 	if len(m.newDls) == 0 {
-		return m.alreadyDownloadedList()
+		return m.showAlreadyProcessed()
 	}
 
-	return m.downloadPrompt()
+	return m.promptDownload()
 }
 
-func (m downloadsModel) downloadPrompt() string {
+func (m downloadsModel) promptDownload() string {
 	s := "Press <space> to change the action to perform on each item \n"
-	s += "[D] to download, [I] to ignore [ ] to do nothing\n\n"
-	s += "press <j>,<k> or use arrow keys to navigate\n"
-	s += "press <i> to ignore all, <d> to download all, <u> to unselect all\n"
+	s += "[D] => download, [I] => ignore [ ] => do nothing\n\n"
+	s += "press <j>,<k> or use arrow keys to navigate.\n"
+	s += "press <u> unselect all, <a> download all, <i> ignore all.\n"
 	s += "press <Ctrl+s> to stream (needs webtorrent installed)\n\n"
+
 	for i, dl := range m.newDls {
 		cursor := " "
 		if m.cursor == i {
@@ -136,9 +117,9 @@ func (m downloadsModel) downloadPrompt() string {
 		checked := " "
 		if v, ok := m.selected[i]; ok {
 			switch v {
-			case downloadAction:
+			case gofetch.DownloadAction:
 				checked = "D"
-			case ignoreAction:
+			case gofetch.IgnoreAction:
 				checked = "I"
 			}
 		}
@@ -150,13 +131,17 @@ func (m downloadsModel) downloadPrompt() string {
 	return s
 }
 
-func (m downloadsModel) alreadyDownloadedList() string {
-	s := "\nNo new downloads found.\n"
+func (m downloadsModel) showAlreadyProcessed() string {
+	if len(m.allDls) == 0 {
+		return "\nNo items found.\n"
+	}
+
+	s := fmt.Sprintf("\nAll found items (%d) have been processed.\n", len(m.allDls))
 	if len(m.allDls) > 0 {
-		s += fmt.Sprintf("Already downloaded items count: %d\n", len(m.allDls))
 		s += showListCapped(m.allDls)
 	}
 	s += "\n"
+
 	return s
 }
 
@@ -168,7 +153,7 @@ func showListCapped(dls []gofetch.Downloadable) string {
 
 	s := ""
 	for _, dl := range dls[:max] {
-		s += fmt.Sprintf("- %s\n", dl.Name())
+		s += fmt.Sprintf("- [%s] %s\n", dl.Action, dl.Name())
 	}
 	if len(dls) > max {
 		s += fmt.Sprintf("%d more ...\n", len(dls)-max)
@@ -179,7 +164,7 @@ func showListCapped(dls []gofetch.Downloadable) string {
 func newDownloadsModel(gf *gofetch.GoFetch) tea.Model {
 	return downloadsModel{
 		gf:       gf,
-		selected: make(map[int]action, 0),
+		selected: make(map[int]gofetch.Action, 0),
 	}
 }
 
@@ -188,7 +173,7 @@ func (m *downloadsModel) fetchDone(dls dlsMsg) {
 	m.allDls = dls
 
 	for _, dl := range dls {
-		if dl.Seen {
+		if dl.Action.Seen() {
 			continue
 		}
 		m.newDls = append(m.newDls, dl)
@@ -196,7 +181,7 @@ func (m *downloadsModel) fetchDone(dls dlsMsg) {
 
 	for i, dl := range m.newDls {
 		if !dl.Optional {
-			m.selected[i] = downloadAction
+			m.selected[i] = gofetch.DownloadAction
 		}
 	}
 }
@@ -219,9 +204,9 @@ func (m downloadsModel) downloadCommand() tea.Cmd {
 			dl := m.newDls[i]
 			var err error
 			switch action {
-			case downloadAction:
+			case gofetch.DownloadAction:
 				err = m.gf.Download(dl)
-			case ignoreAction:
+			case gofetch.IgnoreAction:
 				err = m.gf.Ignore(dl)
 			}
 
@@ -242,13 +227,31 @@ func (m downloadsModel) streamCommand() tea.Cmd {
 	}
 }
 
-func (m *downloadsModel) changeAllActions(from action, to action) {
-	for k, v := range m.selected {
-		if to == invalidAction {
-			delete(m.selected, k)
+func (m *downloadsModel) selectionChangeAll(from gofetch.Action, to gofetch.Action) {
+	for i := range m.newDls {
+		if from == gofetch.NoAction {
+			m.selected[i] = to
+			continue
 		}
-		if v == from {
-			m.selected[k] = to
+		if to == gofetch.NoAction {
+			delete(m.selected, i)
+			continue
 		}
+		if v, ok := m.selected[i]; ok && v == from {
+			m.selected[i] = to
+		}
+	}
+}
+
+func (m *downloadsModel) selectionUpdate() {
+	if v, ok := m.selected[m.cursor]; ok {
+		switch v {
+		case gofetch.DownloadAction:
+			m.selected[m.cursor] = gofetch.NoAction
+		case gofetch.IgnoreAction:
+			delete(m.selected, m.cursor)
+		}
+	} else {
+		m.selected[m.cursor] = gofetch.DownloadAction
 	}
 }
