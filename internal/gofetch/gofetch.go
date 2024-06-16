@@ -33,9 +33,9 @@ func (a Action) String() string {
 	case NoAction:
 		return ""
 	case DownloadAction:
-		return "downloaded"
+		return "download"
 	case IgnoreAction:
-		return "ignored"
+		return "ignore"
 	default:
 		return "unknown"
 	}
