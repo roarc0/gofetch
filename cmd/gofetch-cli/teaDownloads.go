@@ -5,6 +5,7 @@ import (
 
 	tea "github.com/charmbracelet/bubbletea"
 
+	"github.com/roarc0/gofetch/internal/collector"
 	"github.com/roarc0/gofetch/internal/gofetch"
 )
 
@@ -66,6 +67,8 @@ func (m downloadsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return commandModel(m.gf), nil
 			}
 			return m, m.downloadCommand()
+		case "ctrl+w":
+			return m, m.webtorrentCommand()
 		}
 	case dlsMsg:
 		m.fetchDone(msg)
@@ -115,6 +118,7 @@ func (m downloadsModel) View() string {
 func (m downloadsModel) downloadPrompt() string {
 	s := "Press <space> to change the action to perform on each item \n"
 	s += "[D] to download, [I] to ignore [ ] to do nothing\n\n"
+	s += "press Ctrl+W to start webtorrent\n\n"
 	for i, dl := range m.newDls {
 		cursor := " "
 		if m.cursor == i {
@@ -217,5 +221,16 @@ func (m downloadsModel) downloadCommand() tea.Cmd {
 		}
 
 		return doneMsg
+	}
+}
+
+func (m downloadsModel) webtorrentCommand() tea.Cmd {
+	return func() tea.Msg {
+		dl := m.newDls[m.cursor]
+
+		downloader := collector.WebTorrentDownloader{}
+		err := downloader.Download(dl)
+
+		return errMsg(err)
 	}
 }
