@@ -4,8 +4,7 @@ import (
 	"fmt"
 
 	tea "github.com/charmbracelet/bubbletea"
-	"github.com/roarc0/gofetch/internal/collector"
-	"github.com/roarc0/gofetch/internal/filter"
+
 	"github.com/roarc0/gofetch/internal/gofetch"
 )
 
@@ -20,22 +19,11 @@ const (
 	ignoreAction
 )
 
-func (a action) String() string {
-	switch a {
-	case downloadAction:
-		return "download"
-	case ignoreAction:
-		return "ignore"
-	default:
-		return ""
-	}
-}
-
 type downloadsModel struct {
 	gf *gofetch.GoFetch
 
-	newDls []filter.MatchedDownloadable
-	allDls []filter.MatchedDownloadable
+	allDls []gofetch.Downloadable
+	newDls []gofetch.Downloadable
 
 	err      error
 	cursor   int
@@ -44,15 +32,11 @@ type downloadsModel struct {
 	fetched bool
 }
 
-type dlsMsg struct {
-	new []filter.MatchedDownloadable
-	all []filter.MatchedDownloadable
-}
+type dlsMsg []gofetch.Downloadable
 
 type dlDoneMsg struct {
-	dl     collector.Downloadable
-	action action
-	error  error
+	index int
+	error error
 }
 
 func (m downloadsModel) Init() tea.Cmd {
@@ -89,7 +73,11 @@ func (m downloadsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.fetched = true
 		m.err = msg
 	case []dlDoneMsg:
-		return commandModel(m.gf), nil
+		if len(m.newDls) == 0 {
+			return commandModel(m.gf), nil
+		}
+		nm := newDownloadsModel(m.gf)
+		return nm, nm.Init()
 	}
 
 	return m, nil
@@ -125,7 +113,7 @@ func (m downloadsModel) View() string {
 }
 
 func (m downloadsModel) downloadPrompt() string {
-	s := "Select the items you want to download or ignore \n"
+	s := "Press <space> to change the action to perform on each item \n"
 	s += "[D] to download, [I] to ignore [ ] to do nothing\n\n"
 	for i, dl := range m.newDls {
 		cursor := " "
@@ -154,13 +142,13 @@ func (m downloadsModel) alreadyDownloadedList() string {
 	s := "\nNo new downloads found.\n"
 	if len(m.allDls) > 0 {
 		s += fmt.Sprintf("Already downloaded items count: %d\n", len(m.allDls))
-		s += downloadsListCapped(m.allDls)
+		s += showListCapped(m.allDls)
 	}
 	s += "\n"
 	return s
 }
 
-func downloadsListCapped(dls []filter.MatchedDownloadable) string {
+func showListCapped(dls []gofetch.Downloadable) string {
 	max := maxPrintableDownloads
 	if len(dls) < max {
 		max = len(dls)
@@ -185,8 +173,15 @@ func newDownloadsModel(gf *gofetch.GoFetch) tea.Model {
 
 func (m *downloadsModel) fetchDone(dls dlsMsg) {
 	m.fetched = true
-	m.newDls = dls.new
-	m.allDls = dls.all
+	m.allDls = dls
+
+	for _, dl := range dls {
+		if dl.Seen {
+			continue
+		}
+		m.newDls = append(m.newDls, dl)
+	}
+
 	for i, dl := range m.newDls {
 		if !dl.Optional {
 			m.selected[i] = downloadAction
@@ -201,31 +196,26 @@ func fetchCommand(gf *gofetch.GoFetch) tea.Cmd {
 			return errMsg(err)
 		}
 
-		undownloadedDls := gf.FilterNewDonwloads(dls)
-
-		return dlsMsg{
-			new: undownloadedDls,
-			all: dls,
-		}
+		return dlsMsg(dls)
 	}
 }
 
 func (m downloadsModel) downloadCommand() tea.Cmd {
 	return func() tea.Msg {
-		var done []dlDoneMsg
-		for _, i := range m.selected {
-			dl := m.newDls[i].Downloadable
+		var doneMsg []dlDoneMsg
+		for i, action := range m.selected {
+			dl := m.newDls[i]
 			var err error
-			switch i {
+			switch action {
 			case downloadAction:
 				err = m.gf.Download(dl)
 			case ignoreAction:
 				err = m.gf.Ignore(dl)
 			}
 
-			done = append(done, dlDoneMsg{dl, i, err})
+			doneMsg = append(doneMsg, dlDoneMsg{i, err})
 		}
 
-		return done
+		return doneMsg
 	}
 }

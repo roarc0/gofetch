@@ -13,29 +13,6 @@ var (
 	ErrUnknownMatchType = errors.New("unknown match type")
 )
 
-func FilterDownloadables(in []MatchedDownloadable, filter func(MatchedDownloadable) bool) (out []MatchedDownloadable) {
-	if filter == nil {
-		filter = func(d MatchedDownloadable) bool {
-			return d.Optional
-		}
-	}
-
-	for _, d := range in {
-		if !filter(d) {
-			out = append(out, d)
-		}
-	}
-
-	return
-}
-
-func ToDownloadables(in []MatchedDownloadable) (out []collector.Downloadable) {
-	for _, d := range in {
-		out = append(out, d.Downloadable)
-	}
-	return
-}
-
 type Filter struct {
 	matchers []Matcher
 }
