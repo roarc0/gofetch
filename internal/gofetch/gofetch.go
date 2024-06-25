@@ -145,6 +145,11 @@ func (gf *GoFetch) Ignore(dl Downloadable) error {
 	return nil
 }
 
+func (gf *GoFetch) Forget(dl Downloadable) error {
+	hash := collector.Hash(dl)
+	return gf.memory.Del(hash)
+}
+
 func (gf *GoFetch) Stream(dl Downloadable) error {
 	return collector.WebTorrentDownloader{}.Download(dl)
 }

@@ -11,6 +11,7 @@ type Memory interface {
 	Put(key string, value string) error
 	Get(key string) (*string, error)
 	Has(key string) bool
+	Del(key string) error
 	io.Closer
 }
 
@@ -82,6 +83,14 @@ func (m *memory) Has(key string) bool {
 	}
 
 	return exists
+}
+
+func (m *memory) Del(key string) error {
+	return m.db.Update(func(tx *bolt.Tx) error {
+		b := tx.Bucket(m.bucket)
+		err := b.Delete([]byte(key))
+		return err
+	})
 }
 
 func (m *memory) Close() error {
