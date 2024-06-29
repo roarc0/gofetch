@@ -2,3 +2,4 @@ gofetch.db
 config.yaml
 .vscode/
 __debug*
+*.log

@@ -8,6 +8,7 @@ import (
 	"github.com/roarc0/gofetch/internal/collector"
 	"github.com/roarc0/gofetch/internal/config"
 	"github.com/roarc0/gofetch/internal/memory"
+	"github.com/rs/zerolog/log"
 )
 
 const (
@@ -74,7 +75,8 @@ func (gf *GoFetch) Fetch() (dls []Downloadable, err error) {
 
 		downloads, err := c.Collect(context.Background())
 		if err != nil {
-			return nil, err
+			log.Error().Err(err).Msg("failed to collect")
+			continue
 		}
 
 		filteredDownloads, err := entry.Filter.Filter(downloads)
@@ -89,13 +91,12 @@ func (gf *GoFetch) Fetch() (dls []Downloadable, err error) {
 			if err != nil {
 				return nil, err
 			}
+
 			switch *actionPtr {
 			case DownloadAction.String():
 				action = DownloadAction
 			case IgnoreAction.String():
 				action = IgnoreAction
-			case NoAction.String():
-				fallthrough
 			default:
 				action = NoAction
 			}

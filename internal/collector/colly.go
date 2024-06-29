@@ -16,7 +16,7 @@ const (
 	defaultDNSResolverIP        = "1.1.1.1:53"
 	defaultDNSResolverProto     = "udp"
 	defaultDNSResolverTimeoutMs = 5000
-	defaultRetryMax             = 10
+	defaultRetryMax             = 2
 )
 
 type HttpConfig struct {
@@ -59,7 +59,7 @@ func newColly(cfg *HttpConfig) *colly.Collector {
 func httpClient(cfg *HttpConfig) *http.Client {
 	retryClient := retryablehttp.NewClient()
 	retryClient.RetryMax = cfg.RetryMax
-
+	retryClient.HTTPClient.Timeout = 7 * time.Second
 	dialer := &net.Dialer{
 		Resolver: &net.Resolver{
 			PreferGo: true,

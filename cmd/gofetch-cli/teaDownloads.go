@@ -33,7 +33,7 @@ type downloadsModel struct {
 	fetched         bool
 
 	table       table.Model
-	selected    map[int]gofetch.Action
+	selections  map[int]gofetch.Action
 	interactive bool
 
 	dls []gofetch.Downloadable
@@ -41,8 +41,8 @@ type downloadsModel struct {
 
 func newDownloadsModel(gf *gofetch.GoFetch) tea.Model {
 	m := downloadsModel{
-		gf:       gf,
-		selected: make(map[int]gofetch.Action, 0),
+		gf:         gf,
+		selections: make(map[int]gofetch.Action, 0),
 	}
 
 	spn := spinner.New()
@@ -112,9 +112,9 @@ func (m downloadsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		case "ctrl+s":
 			return m, m.streamCommand()
 		case "enter":
-			if m.err != nil {
-				return commandModel(m.gf), nil
-			}
+			// if !m.interactive || m.err != nil {
+			// 	return commandModel(m.gf), nil
+			// }
 			return m, m.downloadCommand()
 		}
 	case inDlsMsg:
@@ -148,17 +148,20 @@ func (m downloadsModel) View() string {
 		return "\n" + m.err.Error() + "\n"
 	}
 
-	if !m.interactive {
-		return m.showAlreadyProcessed()
-	}
-
-	return m.promptDownload()
+	return m.showTable()
 }
 
-func (m downloadsModel) promptDownload() string {
-	s := "Press <space> to change the action to perform on the item \n"
+func (m downloadsModel) showTable() string {
+	if len(m.dls) == 0 {
+		return "\nNo items found.\n"
+	}
+
+	var s string
 	s += "Press <j>,<k> or use arrow keys to navigate.\n"
-	s += "Press <u> unselect all, <a> download all, <i> ignore all.\n"
+	if m.interactive {
+		s += "Press <space> to change the action to perform on the item \n"
+		s += "Press <u> unselect all, <a> download all, <i> ignore all.\n"
+	}
 	s += "Press <Ctrl+s> to stream (needs webtorrent installed)\n\n"
 
 	s += m.table.View() + "\n"
@@ -167,39 +170,29 @@ func (m downloadsModel) promptDownload() string {
 	return s
 }
 
-func (m downloadsModel) showAlreadyProcessed() string {
-	if len(m.dls) == 0 {
-		return "\nNo items found.\n"
-	}
-
-	s := fmt.Sprintf("\nAll items (%d) have been already processed.\n", len(m.dls))
-	s += "Press <Ctrl+s> to stream (needs webtorrent installed)\n\n"
-
-	s += m.table.View() + "\n"
-
-	return s
-}
-
 func (m *downloadsModel) fetchDone(dls inDlsMsg) {
 	m.fetched = true
-	m.interactive = true
 
 	for _, dl := range dls {
 		if dl.Action.Seen() {
 			continue
 		}
+
+		i := len(m.dls)
+		if dl.Optional {
+			m.selections[i] = gofetch.IgnoreAction
+		} else {
+			m.selections[i] = gofetch.DownloadAction
+		}
+
 		m.dls = append(m.dls, dl)
 	}
 
-	for i, dl := range m.dls {
-		if !dl.Optional {
-			m.selected[i] = gofetch.DownloadAction
-		}
-	}
+	m.interactive = len(m.dls) != 0
 
-	if len(m.dls) == 0 {
-		m.interactive = false
+	if !m.interactive {
 		m.dls = dls
+		clear(m.selections)
 	}
 
 	m.updateTable()
@@ -208,12 +201,15 @@ func (m *downloadsModel) fetchDone(dls inDlsMsg) {
 func (m *downloadsModel) updateTable() {
 	rows := []table.Row{}
 
-	for _, dl := range m.dls {
+	for i, dl := range m.dls {
 		var actionStr string
 		if !m.interactive {
 			actionStr = fmt.Sprintf("[%s]", dl.Action.String())
 		} else {
-			actionStr = dl.Action.String()
+			actionStr = m.selections[i].String()
+			if len(actionStr) != 0 {
+				actionStr = fmt.Sprintf("<%s>", actionStr)
+			}
 		}
 
 		rows = append(rows,
@@ -229,7 +225,7 @@ func (m *downloadsModel) updateTable() {
 
 func (m downloadsModel) getAction(idx int) gofetch.Action {
 	action := gofetch.NoAction
-	if v, ok := m.selected[idx]; ok {
+	if v, ok := m.selections[idx]; ok {
 		action = v
 	}
 	return action
@@ -248,19 +244,16 @@ func (m downloadsModel) fetchCommand() tea.Cmd {
 
 func (m downloadsModel) downloadCommand() tea.Cmd {
 	return func() tea.Msg {
-		if !m.interactive {
-			return nil
-		}
-
 		var msg outDlsMsg
-		for i, action := range m.selected {
-			dl := m.dls[i]
+
+		for i, action := range m.selections {
 			var err error
+
 			switch action {
 			case gofetch.DownloadAction:
-				err = m.gf.Download(dl)
+				err = m.gf.Download(m.dls[i])
 			case gofetch.IgnoreAction:
-				err = m.gf.Ignore(dl)
+				err = m.gf.Ignore(m.dls[i])
 			}
 
 			msg = append(msg, outDl{i, err})
@@ -287,25 +280,20 @@ func (m *downloadsModel) selectionChangeAll(from gofetch.Action, to gofetch.Acti
 
 	for i := range m.dls {
 		if from == gofetch.NoAction {
-			m.selected[i] = to
+			m.selections[i] = to
 			continue
 		}
 		if to == gofetch.NoAction {
-			delete(m.selected, i)
+			delete(m.selections, i)
 			continue
 		}
-		if v, ok := m.selected[i]; ok && v == from {
-			m.selected[i] = to
+		if v, ok := m.selections[i]; ok && v == from {
+			m.selections[i] = to
 		}
 	}
 
 	m.updateTable()
 }
-
-// func (m downloadsModel) currentIsSeen() bool {
-// 	cursor := m.table.Cursor()
-// 	return m.dls[cursor].Action.Seen()
-// }
 
 func (m *downloadsModel) selectionChange() {
 	if !m.interactive {
@@ -313,15 +301,15 @@ func (m *downloadsModel) selectionChange() {
 	}
 
 	cursor := m.table.Cursor()
-	if v, ok := m.selected[cursor]; ok {
+	if v, ok := m.selections[cursor]; ok {
 		switch v {
 		case gofetch.DownloadAction:
-			m.selected[cursor] = gofetch.IgnoreAction
+			m.selections[cursor] = gofetch.IgnoreAction
 		case gofetch.IgnoreAction:
-			delete(m.selected, cursor)
+			delete(m.selections, cursor)
 		}
 	} else {
-		m.selected[cursor] = gofetch.DownloadAction
+		m.selections[cursor] = gofetch.DownloadAction
 	}
 
 	m.updateTable()
