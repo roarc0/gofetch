@@ -48,7 +48,8 @@ func TestGoFetch(t *testing.T) {
 
 	mockCtlr := gomock.NewController(t)
 	mockMemory := mocks.NewMockMemory(gomock.NewController(t))
-	mockMemory.EXPECT().Has(gomock.Any()).Return(false).AnyTimes()
+	actionStr := DownloadAction.String()
+	mockMemory.EXPECT().Get(gomock.Any()).Return(&actionStr, nil).AnyTimes()
 	defer mockCtlr.Finish()
 
 	g, err := NewGoFetch(&cfg, mockMemory)
