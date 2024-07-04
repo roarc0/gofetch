@@ -7,6 +7,7 @@ import (
 
 	"github.com/roarc0/gofetch/internal/collector"
 	"github.com/roarc0/gofetch/internal/config"
+	"github.com/roarc0/gofetch/internal/filter"
 	"github.com/roarc0/gofetch/internal/memory"
 	"github.com/rs/zerolog/log"
 )
@@ -63,50 +64,60 @@ func NewGoFetch(cfg *config.Config, memory memory.Memory) (*GoFetch, error) {
 
 func (gf *GoFetch) Fetch() (dls []Downloadable, err error) {
 	for _, entry := range gf.cfg.Entries {
-		source, ok := gf.cfg.Sources[entry.SourceName]
-		if !ok {
-			return nil, errors.New("source not found")
-		}
-
-		c, err := source.Collector()
+		d, err := gf.Search(entry.SourceName, entry.Filter)
 		if err != nil {
-			return nil, err
-		}
-
-		downloads, err := c.Collect(context.Background())
-		if err != nil {
-			log.Error().Err(err).Msg("failed to collect")
+			log.Error().Err(err).Msg("failed to search")
 			continue
 		}
+		dls = append(dls, d...)
+	}
 
-		filteredDownloads, err := entry.Filter.Filter(downloads)
+	return dls, nil
+}
+
+func (gf *GoFetch) Search(sourceName string, filter filter.Filter) (dls []Downloadable, err error) {
+	source, ok := gf.cfg.Sources[sourceName]
+	if !ok {
+		return nil, errors.New("source not found")
+	}
+
+	c, err := source.Collector()
+	if err != nil {
+		return nil, err
+	}
+
+	downloads, err := c.Collect(context.Background())
+	if err != nil {
+		return nil, err
+	}
+
+	filteredDownloads, err := filter.Filter(downloads)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, dl := range filteredDownloads {
+		var action Action
+
+		actionPtr, err := gf.memory.Get(collector.Hash(dl))
 		if err != nil {
 			return nil, err
 		}
 
-		for _, dl := range filteredDownloads {
-			var action Action
-
-			actionPtr, err := gf.memory.Get(collector.Hash(dl))
-			if err != nil {
-				return nil, err
-			}
-
-			switch *actionPtr {
-			case DownloadAction.String():
-				action = DownloadAction
-			case IgnoreAction.String():
-				action = IgnoreAction
-			default:
-				action = NoAction
-			}
-
-			dls = append(dls, Downloadable{
-				Downloadable: dl,
-				Optional:     dl.Optional,
-				Action:       action,
-			})
+		switch *actionPtr {
+		case DownloadAction.String():
+			action = DownloadAction
+		case IgnoreAction.String():
+			action = IgnoreAction
+		default:
+			action = NoAction
 		}
+
+		dls = append(dls, Downloadable{
+			Downloadable: dl,
+			Optional:     dl.Optional,
+			Action:       action,
+		})
 	}
 
 	return dls, nil

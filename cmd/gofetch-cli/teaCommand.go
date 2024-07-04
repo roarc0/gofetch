@@ -6,7 +6,10 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/charmbracelet/lipgloss"
+	"github.com/google/shlex"
+	"github.com/rs/zerolog/log"
 
+	"github.com/roarc0/gofetch/internal/filter"
 	"github.com/roarc0/gofetch/internal/gofetch"
 )
 
@@ -51,18 +54,48 @@ func (m model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, tea.Quit
 		case tea.KeyEnter:
 			{
-				switch m.textInput.Value() {
-				case "fetch":
-					nm := newDownloadsModel(m.gf)
+				args, err := shlex.Split(m.textInput.Value())
+				if err != nil {
+					return m, nil
+				}
+
+				log.Info().
+					Any("args", args).
+					Msg("Command")
+
+				if len(args) == 0 {
+					return m, nil
+				}
+
+				switch args[0] {
+				case "fetch", "f":
+					nm := newDownloadsModel(m.gf, func() ([]gofetch.Downloadable, error) {
+						return m.gf.Fetch()
+					})
+
 					return nm, nm.Init()
-				case "help":
+				case "search", "s":
+					if len(args) != 3 {
+						return m, nil
+					}
+
+					nm := newDownloadsModel(m.gf, func() ([]gofetch.Downloadable, error) {
+						filter := filter.NewFilter([]filter.Matcher{
+							&filter.RegexMatcher{
+								MatchType: filter.MatchTypeRequired,
+								Regex:     args[2],
+							},
+						})
+						return m.gf.Search(args[1], filter)
+					})
+
+					return nm, nm.Init()
+				case "help", "h":
 					//nm := newHelpModel(m.gf)
 					//return nm, nm.Init()
-				case "quit":
-					fallthrough
-				case "q":
+				case "quit", "q":
 					return m, tea.Quit
-				case "clear":
+				case "clear", "c":
 					return m, tea.ClearScreen
 				}
 			}

@@ -31,6 +31,7 @@ type downloadsModel struct {
 
 	fetchingSpinner spinner.Model
 	fetched         bool
+	fetcher         func() ([]gofetch.Downloadable, error)
 
 	table       table.Model
 	selections  map[int]gofetch.Action
@@ -39,10 +40,11 @@ type downloadsModel struct {
 	dls []gofetch.Downloadable
 }
 
-func newDownloadsModel(gf *gofetch.GoFetch) tea.Model {
+func newDownloadsModel(gf *gofetch.GoFetch, fetcher func() ([]gofetch.Downloadable, error)) tea.Model {
 	m := downloadsModel{
 		gf:         gf,
 		selections: make(map[int]gofetch.Action, 0),
+		fetcher:    fetcher,
 	}
 
 	spn := spinner.New()
@@ -126,7 +128,7 @@ func (m downloadsModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if len(m.dls) == 0 {
 			return commandModel(m.gf), nil
 		}
-		nm := newDownloadsModel(m.gf)
+		nm := newDownloadsModel(m.gf, m.fetcher)
 		return nm, nm.Init()
 	case spinner.TickMsg:
 		if !m.fetched {
@@ -233,7 +235,7 @@ func (m downloadsModel) getAction(idx int) gofetch.Action {
 
 func (m downloadsModel) fetchCommand() tea.Cmd {
 	return func() tea.Msg {
-		dls, err := m.gf.Fetch()
+		dls, err := m.fetcher()
 		if err != nil {
 			return errMsg(err)
 		}
