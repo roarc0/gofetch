@@ -5,6 +5,7 @@ go 1.22.4
 require (
 	github.com/charmbracelet/lipgloss v0.11.0
 	github.com/gocolly/colly/v2 v2.1.0
+	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510
 	github.com/hashicorp/go-retryablehttp v0.7.7
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/roarc0/go-magnet v0.0.0-20240608130713-0e0864009fc8
@@ -22,7 +23,6 @@ require (
 	github.com/davecgh/go-spew v1.1.2-0.20180830191138-d8f796af33cc // indirect
 	github.com/erikgeiser/coninput v0.0.0-20211004153227-1c3628e74d0f // indirect
 	github.com/fsnotify/fsnotify v1.7.0 // indirect
-	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/hashicorp/go-cleanhttp v0.5.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
@@ -63,7 +63,6 @@ require (
 	github.com/gobwas/glob v0.2.3 // indirect
 	github.com/golang/groupcache v0.0.0-20210331224755-41bb18bfe9da // indirect
 	github.com/golang/protobuf v1.5.4 // indirect
-	github.com/jessevdk/go-flags v1.6.1
 	github.com/kennygrant/sanitize v1.2.4 // indirect
 	github.com/pkg/errors v0.9.1
 	github.com/rs/zerolog v1.33.0
@@ -71,7 +70,7 @@ require (
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.9.0
 	github.com/temoto/robotstxt v1.1.2 // indirect
-	go.etcd.io/bbolt v1.3.10
+	go.etcd.io/bbolt v1.3.11
 	golang.org/x/net v0.26.0 // indirect
 	golang.org/x/text v0.16.0 // indirect
 	google.golang.org/appengine v1.6.8 // indirect
